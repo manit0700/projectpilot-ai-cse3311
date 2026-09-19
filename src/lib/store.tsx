@@ -33,6 +33,7 @@ type Store = ProjectContext & {
   busy: boolean;
   busyLabel: string;
   startProject: (idea: string, targetUser: string) => void;
+  startDemoProject: () => void;
   updateAnswer: (questionId: string, answer: string) => void;
   submitAnswers: () => void;
   toggleRequirement: (id: string, status: "approved" | "rejected") => void;
@@ -123,6 +124,46 @@ export function ProjectStoreProvider({ children }: { children: ReactNode }) {
         makeNote(
           "questions",
           "Manager: Idea received. Asking clarifying questions before drafting requirements.",
+        ),
+      ],
+    });
+  }, []);
+
+  const startDemoProject = useCallback(() => {
+    const idea =
+      "An AI project workspace where a Manager Agent breaks a small software project into tasks, assigns frontend, backend, database, testing, and documentation agents, reviews their outputs, and asks the student for approval before major changes.";
+    const targetUser =
+      "CSE students building small class projects with one shared workspace";
+    const project = createProject(idea, targetUser);
+    const demoAnswers: Record<string, string> = {
+      "Who is the primary user of this project?":
+        "A student developer who needs help turning a class project idea into an organized implementation plan.",
+      "What is the must-have feature for a first MVP demo?":
+        "The Manager Agent must split the project into dependency-ordered tasks and assign each task to a specialist agent.",
+      "What tech stack constraints do you have (language, host, DB)?":
+        "Use a Next.js web app with mock AI first, then connect a real AI API after the class demo is stable.",
+      "Do you need login/auth in the MVP?":
+        "No login for the first demo; keep it single-user and focus on planning, approval, and revision flow.",
+      "Should the MVP use a live AI API or mock responses first?":
+        "Mock responses first so the demo is reliable, then optional live API integration later.",
+    };
+    const questions = generateQuestions(idea).map((q) => ({
+      ...q,
+      answer: demoAnswers[q.prompt] ?? "Keep the MVP small and demo-ready.",
+    }));
+    const requirements = generateRequirements(project, questions);
+
+    setState({
+      ...initialState(),
+      project: { ...project, status: "requirements_pending" },
+      questions,
+      requirements,
+      currentStep: "requirements",
+      startedAt: Date.now(),
+      managerNotes: [
+        makeNote(
+          "requirements",
+          "Manager: Demo project loaded with clarifying answers. Review requirements before task breakdown.",
         ),
       ],
     });
@@ -438,6 +479,7 @@ export function ProjectStoreProvider({ children }: { children: ReactNode }) {
       busy,
       busyLabel,
       startProject,
+      startDemoProject,
       updateAnswer,
       submitAnswers,
       toggleRequirement,
@@ -456,6 +498,7 @@ export function ProjectStoreProvider({ children }: { children: ReactNode }) {
       busy,
       busyLabel,
       startProject,
+      startDemoProject,
       updateAnswer,
       submitAnswers,
       toggleRequirement,
