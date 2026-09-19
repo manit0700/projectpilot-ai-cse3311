@@ -29,8 +29,8 @@ export function BoardScreen() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-slate-900">Agent assignment board</h1>
-      <p className="mt-1 text-sm text-slate-600">
+      <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl text-slate-900">Agent assignment board</h1>
+      <p className="mt-3 text-base leading-relaxed text-slate-600">
         {busy
           ? busyLabel
           : "Specialists work from shared context. Failed timeouts retry once."}
@@ -42,7 +42,7 @@ export function BoardScreen() {
           .map((a) => (
             <span
               key={a.id}
-              className="rounded border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700"
+              className="rounded-xl border border-slate-200 bg-white px-2.5 py-1 text-base leading-relaxed text-slate-700"
             >
               <span className="font-semibold">{AGENT_LABELS[a.role]}</span>
               <span className="ml-2 text-slate-400">{a.availability}</span>
@@ -50,15 +50,15 @@ export function BoardScreen() {
           ))}
       </div>
 
-      <div className="mt-6 grid gap-3 md:grid-cols-3 xl:grid-cols-5">
+      <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {COLUMNS.map((col) => {
           const colTasks = tasks.filter((t) => t.state === col.state);
           return (
             <div
               key={col.state}
-              className="min-h-48 rounded border border-slate-200 bg-slate-50 p-2"
+              className="min-h-48 rounded-xl border border-slate-200 bg-slate-50 p-2"
             >
-              <div className="mb-2 flex items-center justify-between px-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <div className="mb-2 flex items-center justify-between px-1 text-sm font-semibold uppercase tracking-wide text-slate-500">
                 <span>{col.label}</span>
                 <span className="font-mono">{colTasks.length}</span>
               </div>
@@ -68,16 +68,16 @@ export function BoardScreen() {
                   return (
                     <li
                       key={t.id}
-                      className={`rounded border border-slate-200 border-l-4 bg-white p-2.5 shadow-sm ${ROLE_COLOR[t.ownerAgent] ?? "border-l-slate-400"}`}
+                      className={`rounded-xl border border-slate-200 border-l-4 bg-white p-2.5 shadow-sm ${ROLE_COLOR[t.ownerAgent] ?? "border-l-slate-400"}`}
                     >
                       <div className="text-sm font-medium text-slate-900">
                         {t.title}
                       </div>
-                      <div className="mt-0.5 text-[11px] text-slate-500">
+                      <div className="mt-0.5 text-sm text-slate-500">
                         {AGENT_LABELS[t.ownerAgent]}
                       </div>
                       {out && (
-                        <div className="mt-2 text-[11px] text-slate-600">
+                        <div className="mt-2 text-sm text-slate-600">
                           conf {Math.round(out.confidence * 100)}%
                           {out.retryCount > 0 && " · retried"}
                         </div>
@@ -112,14 +112,14 @@ export function ReviewScreen() {
 
   return (
     <div className="max-w-4xl">
-      <h1 className="text-2xl font-semibold text-slate-900">Review outputs</h1>
-      <p className="mt-1 text-sm text-slate-600">
+      <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl text-slate-900">Review outputs</h1>
+      <p className="mt-3 text-base leading-relaxed text-slate-600">
         Review Agent checks missing pieces, conflicts, and consistency. Approve
         before revisions or final plan.
       </p>
 
       {conflictSummary && (
-        <div className="mt-4 rounded border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
+        <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
           {conflictSummary}
         </div>
       )}
@@ -131,18 +131,18 @@ export function ReviewScreen() {
           return (
             <li
               key={o.id}
-              className="rounded border border-slate-200 bg-white p-4"
+              className="rounded-xl border border-slate-200 bg-white p-4"
             >
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-sm font-semibold text-slate-900">
                   {task?.title ?? o.taskId}
                 </h3>
-                <span className="text-xs text-slate-500">
+                <span className="text-sm text-slate-500">
                   {task ? AGENT_LABELS[task.ownerAgent] : ""}
                 </span>
                 {review && (
                   <span
-                    className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
+                    className={`rounded px-1.5 py-0.5 text-sm font-semibold uppercase ${
                       review.result === "pass"
                         ? "bg-emerald-100 text-emerald-800"
                         : review.result === "conflict"
@@ -154,8 +154,8 @@ export function ReviewScreen() {
                   </span>
                 )}
               </div>
-              <p className="mt-2 text-sm text-slate-700">{o.summary}</p>
-              <div className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-2">
+              <p className="mt-2 text-base leading-relaxed text-slate-700">{o.summary}</p>
+              <div className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
                 <div>
                   <div className="font-semibold text-slate-800">Assumptions</div>
                   <ul className="list-disc pl-4">
@@ -177,7 +177,7 @@ export function ReviewScreen() {
                 (review.missingItems.length > 0 ||
                   review.conflicts.length > 0 ||
                   review.suggestions.length > 0) && (
-                  <div className="mt-3 rounded bg-slate-50 p-2 text-xs text-slate-700">
+                  <div className="mt-3 rounded bg-slate-50 p-2 text-base leading-relaxed text-slate-700">
                     {review.missingItems.length > 0 && (
                       <p>Missing: {review.missingItems.join("; ")}</p>
                     )}
@@ -189,7 +189,7 @@ export function ReviewScreen() {
                     )}
                   </div>
                 )}
-              <div className="mt-2 font-mono text-[11px] text-slate-400">
+              <div className="mt-2 font-mono text-sm text-slate-400">
                 confidence {o.confidence} · blockers{" "}
                 {o.blockers.length ? o.blockers.join("; ") : "none"}
               </div>
@@ -214,18 +214,19 @@ export function FeedbackScreen() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-2xl font-semibold text-slate-900">Feedback / revision</h1>
-      <p className="mt-1 text-sm text-slate-600">
+      <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl text-slate-900">Feedback / revision</h1>
+      <p className="mt-3 text-base leading-relaxed text-slate-600">
         Tell the Manager what to change. Affected tasks are updated only after this
         checkpoint.
       </p>
 
       <textarea
+        aria-label="Feedback for the Manager Agent"
         value={text}
         onChange={(e) => setText(e.target.value)}
         rows={4}
         placeholder="e.g. Expand the UI screens list and add auth edge cases to the API plan"
-        className="mt-6 w-full rounded border border-slate-300 px-3 py-2 text-sm outline-none ring-teal-700/30 focus:ring-2"
+        className="mt-6 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none ring-teal-700/30 focus:ring-2"
       />
 
       {feedbackItems.length > 0 && (
@@ -233,7 +234,7 @@ export function FeedbackScreen() {
           {feedbackItems.map((f) => (
             <li
               key={f.id}
-              className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700"
+              className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-base leading-relaxed text-slate-700"
             >
               <span className="font-semibold uppercase">{f.revisionStatus}</span>
               {" — "}
@@ -270,25 +271,25 @@ export function FinalScreen() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-semibold text-slate-900">Final project plan</h1>
-      <p className="mt-1 text-sm text-slate-600">
+      <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl text-slate-900">Final project plan</h1>
+      <p className="mt-3 text-base leading-relaxed text-slate-600">
         Packaged output for demo, graders, or your next coding sprint. No automatic
         deployment.
       </p>
 
-      <section className="mt-6 rounded border border-slate-200 bg-white p-4">
+      <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="text-sm font-semibold text-slate-900">{project.title}</h2>
-        <p className="mt-1 text-sm text-slate-700">{project.description}</p>
-        <p className="mt-2 text-xs text-slate-500">
+        <p className="mt-1 text-base leading-relaxed text-slate-700">{project.description}</p>
+        <p className="mt-2 text-sm text-slate-500">
           Users: {project.targetUser} · Status: {project.status}
         </p>
       </section>
 
       <section className="mt-4">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
           Approved requirements
         </h3>
-        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-800">
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-base leading-relaxed text-slate-800">
           {approvedReqs.map((r) => (
             <li key={r.id}>{r.text}</li>
           ))}
@@ -296,7 +297,7 @@ export function FinalScreen() {
       </section>
 
       <section className="mt-4">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
           Ordered tasks & agent outputs
         </h3>
         <ol className="mt-2 space-y-2">
@@ -305,16 +306,16 @@ export function FinalScreen() {
             return (
               <li
                 key={t.id}
-                className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
+                className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
               >
                 <div className="font-medium text-slate-900">
                   {t.order}. {t.title}{" "}
-                  <span className="text-xs font-normal text-slate-500">
+                  <span className="text-sm font-normal text-slate-500">
                     ({AGENT_LABELS[t.ownerAgent]})
                   </span>
                 </div>
                 {out && (
-                  <p className="mt-1 text-xs text-slate-600">{out.summary}</p>
+                  <p className="mt-3 text-base leading-relaxed text-slate-600">{out.summary}</p>
                 )}
               </li>
             );
@@ -344,10 +345,10 @@ export function FinalScreen() {
       </section>
 
       {conflictSummary && (
-        <p className="mt-4 text-xs text-rose-700">{conflictSummary}</p>
+        <p className="mt-4 text-sm text-rose-700">{conflictSummary}</p>
       )}
 
-      <p className="mt-4 text-xs text-slate-500">
+      <p className="mt-4 text-sm text-slate-500">
         Reviews logged: {reviews.length}. Deployment and repository writes remain
         human-gated.
       </p>
@@ -362,8 +363,8 @@ export function FinalScreen() {
 
 function MetricChip({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded border border-slate-200 bg-white px-3 py-2">
-      <div className="text-[10px] uppercase tracking-wide text-slate-500">
+    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+      <div className="text-sm uppercase tracking-wide text-slate-500">
         {label}
       </div>
       <div className="font-mono text-sm font-semibold text-slate-900">{value}</div>

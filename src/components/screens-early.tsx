@@ -23,10 +23,10 @@ export function IdeaScreen() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+      <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl tracking-tight text-slate-900">
         New project
       </h1>
-      <p className="mt-1 text-sm text-slate-600">
+      <p className="mt-3 text-base leading-relaxed text-slate-600">
         Describe a class project, hackathon app, or portfolio idea. The Manager
         Agent will clarify scope, draft requirements, and assign specialist agents.
       </p>
@@ -38,7 +38,7 @@ export function IdeaScreen() {
           onChange={(e) => setIdea(e.target.value)}
           rows={5}
           placeholder="e.g. A campus study-group matcher with availability calendars and course filters"
-          className="mt-1.5 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none ring-teal-700/30 focus:ring-2"
+          className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none ring-teal-700/30 focus:ring-2"
         />
       </label>
 
@@ -47,13 +47,13 @@ export function IdeaScreen() {
         <input
           value={targetUser}
           onChange={(e) => setTargetUser(e.target.value)}
-          className="mt-1.5 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm outline-none ring-teal-700/30 focus:ring-2"
+          className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none ring-teal-700/30 focus:ring-2"
         />
       </label>
 
-      <div className="mt-4 rounded border border-teal-200 bg-teal-50 p-4">
+      <div className="mt-4 rounded-xl border border-teal-200 bg-teal-50 p-4">
         <div className="text-sm font-semibold text-teal-950">Class demo sample</div>
-        <p className="mt-1 text-xs leading-5 text-teal-900">
+        <p className="mt-1 text-sm leading-5 text-teal-900">
           Use this to present the automatic multi-agent workflow: manager planning,
           specialist task assignment, review, and human approval.
         </p>
@@ -61,14 +61,14 @@ export function IdeaScreen() {
           <button
             type="button"
             onClick={loadDemoText}
-            className="rounded border border-teal-700 px-3 py-1.5 text-xs font-semibold text-teal-900 hover:bg-white"
+            className="rounded-xl border border-teal-700 px-3 py-1.5 text-sm font-semibold text-teal-900 hover:bg-white"
           >
             Load sample text
           </button>
           <button
             type="button"
             onClick={startDemoProject}
-            className="rounded bg-teal-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-800"
+            className="rounded bg-teal-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-teal-800"
           >
             Run guided demo
           </button>
@@ -90,24 +90,25 @@ export function QuestionsScreen() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-2xl font-semibold text-slate-900">Clarifying questions</h1>
-      <p className="mt-1 text-sm text-slate-600">
+      <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl text-slate-900">Clarifying questions</h1>
+      <p className="mt-3 text-base leading-relaxed text-slate-600">
         Manager is filling gaps for <span className="font-medium">{project.title}</span>.
         Incomplete answers block requirements generation.
       </p>
 
       <ul className="mt-6 space-y-4">
         {questions.map((q, i) => (
-          <li key={q.id} className="rounded border border-slate-200 bg-white p-4">
+          <li key={q.id} className="rounded-xl border border-slate-200 bg-white p-4">
             <div className="text-sm font-medium text-slate-900">
               {i + 1}. {q.prompt}
             </div>
-            <p className="mt-1 text-xs text-slate-500">{q.why}</p>
+            <p className="mt-1 text-sm text-slate-500">{q.why}</p>
             <textarea
+              aria-label={q.prompt}
               value={q.answer}
               onChange={(e) => updateAnswer(q.id, e.target.value)}
               rows={2}
-              className="mt-2 w-full rounded border border-slate-300 px-3 py-2 text-sm outline-none ring-teal-700/30 focus:ring-2"
+              className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none ring-teal-700/30 focus:ring-2"
               placeholder="Your answer"
             />
           </li>
@@ -132,8 +133,8 @@ export function RequirementsScreen() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-semibold text-slate-900">Requirements summary</h1>
-      <p className="mt-1 text-sm text-slate-600">
+      <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl text-slate-900">Requirements summary</h1>
+      <p className="mt-3 text-base leading-relaxed text-slate-600">
         Approve or reject each requirement. Major changes need your checkpoint.
       </p>
 
@@ -141,10 +142,10 @@ export function RequirementsScreen() {
         {requirements.map((r) => (
           <li
             key={r.id}
-            className="flex flex-wrap items-start gap-3 rounded border border-slate-200 bg-white p-3"
+            className="flex flex-wrap items-start gap-3 rounded-xl border border-slate-200 bg-white p-3"
           >
             <span
-              className={`mt-0.5 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
+              className={`mt-0.5 rounded px-1.5 py-0.5 text-sm font-semibold uppercase ${
                 r.priority === "must"
                   ? "bg-rose-100 text-rose-800"
                   : r.priority === "should"
@@ -154,12 +155,12 @@ export function RequirementsScreen() {
             >
               {r.priority}
             </span>
-            <p className="min-w-0 flex-1 text-sm text-slate-800">{r.text}</p>
+            <p className="min-w-0 flex-1 text-base leading-relaxed text-slate-800">{r.text}</p>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => toggleRequirement(r.id, "approved")}
-                className={`rounded px-2.5 py-1 text-xs font-semibold ${
+                className={`rounded px-2.5 py-1 text-sm font-semibold ${
                   r.approvalStatus === "approved"
                     ? "bg-teal-700 text-white"
                     : "border border-slate-300 text-slate-700"
@@ -170,7 +171,7 @@ export function RequirementsScreen() {
               <button
                 type="button"
                 onClick={() => toggleRequirement(r.id, "rejected")}
-                className={`rounded px-2.5 py-1 text-xs font-semibold ${
+                className={`rounded px-2.5 py-1 text-sm font-semibold ${
                   r.approvalStatus === "rejected"
                     ? "bg-slate-800 text-white"
                     : "border border-slate-300 text-slate-700"
@@ -196,50 +197,66 @@ export function TasksScreen() {
 
   return (
     <div className="max-w-4xl">
-      <h1 className="text-2xl font-semibold text-slate-900">Task breakdown</h1>
-      <p className="mt-1 text-sm text-slate-600">
-        Dependency-ordered plan. Approving runs specialist agents (mock AI if no
-        API key).
+      <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl text-slate-900">Task breakdown</h1>
+      <p className="mt-3 text-base leading-relaxed text-slate-600">
+        Review the task order and dependencies. Your approval starts the mock agents.
       </p>
 
       {project.approvedSummary && (
-        <pre className="mt-4 overflow-x-auto rounded border border-slate-200 bg-slate-50 p-3 font-mono text-xs text-slate-700 whitespace-pre-wrap">
+        <pre className="mt-4 break-words rounded-xl border border-slate-200 bg-slate-50 p-3 font-mono text-base leading-relaxed text-slate-700 whitespace-pre-wrap">
           {project.approvedSummary}
         </pre>
       )}
 
-      <div className="mt-6 overflow-x-auto rounded border border-slate-200">
+      <ol className="mt-6 space-y-4 xl:hidden" aria-label="Dependency-ordered tasks">
+        {tasks.map((task) => (
+          <li key={task.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <h2 className="text-lg font-semibold text-slate-900">{task.order}. {task.title}</h2>
+            <p className="mt-2 text-base leading-relaxed text-slate-600">{task.description}</p>
+            <dl className="mt-4 space-y-3 text-sm">
+              <div><dt className="font-semibold text-slate-800">Assigned agent</dt><dd className="mt-1 text-slate-600">{AGENT_LABELS[task.ownerAgent]}</dd></div>
+              <div><dt className="font-semibold text-slate-800">Depends on</dt><dd className="mt-1 text-slate-600">{task.dependencies.length ? task.dependencies.map((id) => {
+                const dependency = tasks.find((item) => item.id === id);
+                return dependency ? `${dependency.order}. ${dependency.title}` : id;
+              }).join("; ") : "No prerequisites"}</dd></div>
+              <div><dt className="font-semibold text-slate-800">Expected output</dt><dd className="mt-1 text-slate-600">{task.expectedOutput}</dd></div>
+            </dl>
+          </li>
+        ))}
+      </ol>
+
+      <div className="mt-6 hidden overflow-x-auto rounded-xl border border-slate-200 xl:block">
         <table className="min-w-full text-left text-sm">
-          <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
+          <thead className="bg-slate-100 text-sm uppercase tracking-wide text-slate-600">
             <tr>
-              <th className="px-3 py-2">#</th>
-              <th className="px-3 py-2">Task</th>
-              <th className="px-3 py-2">Owner</th>
-              <th className="px-3 py-2">Depends on</th>
-              <th className="px-3 py-2">Expected output</th>
+              <th scope="col" className="px-3 py-2">#</th>
+              <th scope="col" className="px-3 py-2">Task</th>
+              <th scope="col" className="px-3 py-2">Owner</th>
+              <th scope="col" className="px-3 py-2">Depends on</th>
+              <th scope="col" className="px-3 py-2">Expected output</th>
             </tr>
           </thead>
           <tbody>
             {tasks.map((t) => (
               <tr key={t.id} className="border-t border-slate-200 align-top">
-                <td className="px-3 py-2 font-mono text-xs text-slate-500">
+                <td className="px-3 py-2 font-mono text-sm text-slate-500">
                   {t.order}
                 </td>
                 <td className="px-3 py-2">
                   <div className="font-medium text-slate-900">{t.title}</div>
-                  <div className="text-xs text-slate-500">{t.description}</div>
+                  <div className="text-sm text-slate-500">{t.description}</div>
                 </td>
-                <td className="px-3 py-2 text-xs">
+                <td className="px-3 py-2 text-sm">
                   {AGENT_LABELS[t.ownerAgent]}
                 </td>
-                <td className="px-3 py-2 font-mono text-xs text-slate-500">
+                <td className="px-3 py-2 font-mono text-sm text-slate-500">
                   {t.dependencies.length
                     ? t.dependencies
                         .map((d) => tasks.find((x) => x.id === d)?.order ?? "?")
                         .join(", ")
                     : "—"}
                 </td>
-                <td className="px-3 py-2 text-xs text-slate-600">
+                <td className="px-3 py-2 text-sm text-slate-600">
                   {t.expectedOutput}
                 </td>
               </tr>

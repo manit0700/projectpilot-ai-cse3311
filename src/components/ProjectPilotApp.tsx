@@ -49,50 +49,45 @@ function AppShell() {
 
   return (
     <div className="flex min-h-screen flex-col bg-[var(--pp-bg)] text-slate-900">
-      <SecurityBanner />
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:mx-4 focus:my-2 focus:rounded-lg focus:bg-white focus:p-3 focus:text-teal-800">Skip to main content</a>
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-5 sm:px-6">
           <div>
-            <div className="text-lg font-semibold tracking-tight text-slate-900">
+            <div className="text-2xl font-semibold tracking-tight text-slate-900">
               ProjectPilot AI
             </div>
-            <div className="text-xs text-slate-500">
-              CSE 3311 · student project planner · mock agents ready
+            <div className="mt-1 text-sm text-slate-600">
+              A clear plan for your next student project
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="rounded-full border border-teal-200 bg-teal-50 px-3 py-1.5 text-sm font-semibold text-teal-800">Demo · Mock AI</span>
             {currentStep !== "idea" && (
               <button
                 type="button"
                 onClick={reset}
-                className="rounded border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                className="min-h-11 rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
                 Reset
               </button>
             )}
           </div>
         </div>
-        <div className="mx-auto max-w-7xl px-4 pb-3">
+        <div className="mx-auto max-w-7xl px-4 pb-5 sm:px-6">
           <WorkflowStepper />
         </div>
       </header>
 
-      <div className="mx-auto grid w-full max-w-7xl flex-1 grid-cols-1 lg:grid-cols-[1fr_280px]">
-        <main className="px-4 py-6">
-          <ScreenRouter />
-        </main>
-        <div className="hidden lg:block">
+      <div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+        <SecurityBanner />
+        <div className="grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+          <main id="main-content" tabIndex={-1} className="min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
+            <ScreenRouter />
+          </main>
           <ManagerPanel />
         </div>
+        <MetricsPanel />
       </div>
-
-      <div className="border-t border-slate-200 lg:hidden">
-        <div className="max-h-48 overflow-y-auto">
-          <ManagerPanel />
-        </div>
-      </div>
-
-      <MetricsPanel />
     </div>
   );
 }
