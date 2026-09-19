@@ -120,3 +120,36 @@ ProjectPilot AI is different because it focuses on student projects, human appro
 - Project memory and recovery notes
 - Team 6 review action items
 
+## GitHub Team Workflow Memory
+
+Shared repository: `https://github.com/manit0700/projectpilot-ai-cse3311`
+
+Full GitHub instructions are in `docs/GITHUB_TEAM_INSTRUCTIONS.md`.
+
+Team members should always pull before editing:
+
+```bash
+git pull origin master
+```
+
+Team members should check status often:
+
+```bash
+git status --short --branch
+```
+
+Before pushing code changes, team members should run:
+
+```bash
+npm run build
+```
+
+Then save and push work:
+
+```bash
+git add .
+git commit -m "Describe your update"
+git push origin master
+```
+
+Important rule: do not overwrite or delete teammate work. If Git shows a merge conflict, stop and ask the team before forcing anything.
