@@ -40,7 +40,7 @@ export const AGENTS: Agent[] = [
   {
     id: "agent-review",
     role: "review",
-    capability: "Consistency checks, conflicts, and missing pieces",
+    capability: "Consistency checks, review issues, and missing pieces",
     availability: "available",
   },
 ];

@@ -22,3 +22,21 @@ body {
 button {
   cursor: pointer;
 }
+
+/* Shared focus and wrapping rules for the project workflow. */
+:where(button, a, input, textarea, select, [tabindex]):focus-visible {
+  outline: 3px solid #0f766e;
+  outline-offset: 3px;
+}
+
+main, aside {
+  overflow-wrap: anywhere;
+}
+
+textarea, input {
+  max-width: 100%;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
