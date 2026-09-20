@@ -1,14 +1,18 @@
 "use client";
 
+import { useId } from "react";
 import { WORKFLOW_STEPS } from "@/lib/agents";
 import { useProjectStore } from "@/lib/store";
+import { frontier, outputsReady } from "@/lib/workflow";
 import type { WorkflowStep } from "@/lib/types";
 
 const stepIndex = (id: WorkflowStep) =>
   WORKFLOW_STEPS.findIndex((s) => s.id === id);
 
 export function WorkflowStepper() {
-  const { currentStep } = useProjectStore();
+  const store = useProjectStore();
+  const { currentStep, canNavigate, goTo, busy } = store;
+  const reached = frontier(store);
   const active = stepIndex(currentStep);
 
   return (
@@ -17,18 +21,23 @@ export function WorkflowStepper() {
         <p className="text-sm font-semibold text-slate-800" aria-live="polite">
           Step {active + 1} of {WORKFLOW_STEPS.length} · {WORKFLOW_STEPS[active]?.label}
         </p>
-        <p className="text-sm text-slate-600">Follow each step. You approve the plan.</p>
+        <p className="text-sm text-slate-600">{busy ? "Assigned agents are working. Navigation pauses until they finish." : "Revisit available steps. Approval gates stay in place."}</p>
       </div>
       <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8">
         {WORKFLOW_STEPS.map((step, i) => {
-          const done = i < active;
+          const done = i < reached && (step.id !== "review" || outputsReady(store)) && (step.id !== "board" || store.tasks.every((t) => t.state === "completed"));
           const current = i === active;
-          const status = current ? "Current" : done ? "Completed" : "Upcoming";
+          const available = canNavigate(step.id);
+          const status = current ? "Current" : done ? "Completed" : available ? "Available" : "Upcoming";
           return (
             <li
               key={step.id}
-              aria-current={current ? "step" : undefined}
-              className={`min-w-0 rounded-xl border p-3 ${
+              className="min-w-0"
+            >
+              <button type="button" aria-current={current ? "step" : undefined}
+                aria-label={`${step.label} — ${status}`} disabled={!available || current}
+                onClick={() => goTo(step.id)}
+                className={`h-full w-full rounded-xl border p-3 text-left focus-visible:outline-offset-2 ${
                 current
                   ? "border-teal-700 bg-teal-700 text-white shadow-sm"
                   : done
@@ -43,6 +52,7 @@ export function WorkflowStepper() {
                 <span>{status}</span>
               </div>
               <span className="block break-words text-sm font-semibold">{step.label}</span>
+              </button>
             </li>
           );
         })}
@@ -59,11 +69,11 @@ export function ManagerPanel() {
       <div className="border-b border-slate-200 px-5 py-4">
         <h2 className="text-lg font-semibold text-slate-900">Manager updates</h2>
         <p className="mt-0.5 text-sm text-slate-600">
-          Planning notes from your mock Manager Agent
+          Planning notes from your Manager Agent
         </p>
       </div>
       {busy && (
-        <div role="status" className="mx-4 mt-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        <div role="status" className="mx-4 mt-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
           {busyLabel || "Working…"}
         </div>
       )}
@@ -98,7 +108,7 @@ export function MetricsPanel() {
     { label: "Acceptance", value: `${metrics.userAcceptanceRate}%` },
     { label: "Revisions", value: String(metrics.numberOfRevisions) },
     { label: "Tasks complete", value: `${metrics.taskCompletionRate}%` },
-    { label: "Conflicts", value: `${metrics.conflictRate}%` },
+    { label: "Review issues", value: `${metrics.conflictRate}%` },
     { label: "Time saved (estimate)", value: `${metrics.planningTimeSavedMinutes}m` },
   ];
 
@@ -106,7 +116,7 @@ export function MetricsPanel() {
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-slate-700">
-          Demo metrics
+          Planning metrics
         </h2>
         <label className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
           Usefulness
@@ -142,35 +152,12 @@ export function MetricsPanel() {
   );
 }
 
-export function SecurityBanner() {
-  const { sensitiveUploadAck, ackSensitiveUpload } = useProjectStore();
-
-  return (
-    <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-950">
-      <strong className="font-semibold">Privacy:</strong> Do not paste API keys or
-      secrets or sensitive code. This prototype uses mock AI responses and does not
-      deploy your project.
-      {!sensitiveUploadAck && (
-        <button
-          type="button"
-          onClick={ackSensitiveUpload}
-          className="ml-2 underline underline-offset-2"
-        >
-          I understand
-        </button>
-      )}
-      {sensitiveUploadAck && (
-        <span className="ml-2 text-amber-800">Acknowledged</span>
-      )}
-    </div>
-  );
-}
-
 export function ApprovalBar({
   onApprove,
   onSecondary,
   approveLabel = "Approve & continue",
   secondaryLabel,
+  secondaryDisabled,
   disabled,
   hint,
 }: {
@@ -178,13 +165,17 @@ export function ApprovalBar({
   onSecondary?: () => void;
   approveLabel?: string;
   secondaryLabel?: string;
+  secondaryDisabled?: boolean;
   disabled?: boolean;
   hint?: string;
 }) {
+  const hintId = useId();
+
   return (
     <div className="mt-8 flex flex-wrap items-center gap-3 border-t border-slate-200 pt-6">
       <button
         type="button"
+        aria-describedby={hint ? hintId : undefined}
         disabled={disabled}
         onClick={onApprove}
         className="min-h-11 w-full rounded-xl bg-teal-700 px-5 py-3 text-base sm:w-auto font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50"
@@ -194,13 +185,15 @@ export function ApprovalBar({
       {onSecondary && secondaryLabel && (
         <button
           type="button"
+          aria-describedby={hint ? hintId : undefined}
+          disabled={secondaryDisabled}
           onClick={onSecondary}
-          className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-5 py-3 text-base sm:w-auto font-medium text-slate-700 hover:bg-slate-50"
+          className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-5 py-3 text-base sm:w-auto font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
         >
           {secondaryLabel}
         </button>
       )}
-      {hint && <p className="w-full text-sm text-slate-600">{hint}</p>}
+      {hint && <p id={hintId} className="w-full text-sm text-slate-600">{hint}</p>}
     </div>
   );
 }

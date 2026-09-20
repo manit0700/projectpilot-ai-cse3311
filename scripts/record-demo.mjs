@@ -24,7 +24,7 @@ async function main() {
   await page.goto("http://localhost:3000", { waitUntil: "networkidle" });
   await pause(1800);
 
-  await page.getByRole("button", { name: "Run guided demo" }).click();
+  await page.getByRole("button", { name: "Run guided workflow" }).click();
   await pause(1600);
 
   const approveButtons = page.getByRole("button", { name: "Approve", exact: true });
@@ -44,15 +44,26 @@ async function main() {
   });
   await pause(3200);
 
-  await page.getByRole("button", { name: /Approve outputs/ }).click();
+  // Approve outputs individually, leaving the first one for a targeted revision.
+  const outputApprovals = page.getByRole("button", { name: "Approve output", exact: true });
+  for (let i = 1; i < await outputApprovals.count(); i += 1) {
+    await outputApprovals.nth(i).click();
+  }
+  await page.getByRole("button", { name: "Request revision", exact: true }).first().click();
+  await page.getByRole("button", { name: "Continue to feedback", exact: true }).click();
   await pause(1800);
 
   await page.getByPlaceholder(/Expand the UI screens list/).fill(
-    "Make the UI flow simpler and keep the approval steps easy to understand.",
+    "Clarify the acceptance criteria for this planning output.",
   );
   await pause(1200);
 
   await page.getByRole("button", { name: /Apply feedback/ }).click();
+  await page.getByRole("heading", { name: "Review outputs", exact: true }).waitFor();
+  await pause(1800);
+  await page.getByRole("button", { name: "Approve output", exact: true }).first().click();
+  await page.getByRole("button", { name: "Continue to feedback", exact: true }).click();
+  await page.getByRole("button", { name: "Skip revisions & finalize approved plan", exact: true }).click();
   await page.getByRole("heading", { name: "Final project plan" }).waitFor({
     timeout: 10000,
   });

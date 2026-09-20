@@ -43,7 +43,7 @@ export function generateQuestions(idea: string): ClarifyingQuestion[] {
     },
     {
       id: uid("q"),
-      prompt: "What is the must-have feature for a first MVP demo?",
+      prompt: "What is the most important feature for your project?",
       answer: "",
       why: "Keeps the task breakdown focused for a class or hackathon deadline.",
     },
@@ -55,7 +55,7 @@ export function generateQuestions(idea: string): ClarifyingQuestion[] {
     },
     {
       id: uid("q"),
-      prompt: "Do you need login/auth in the MVP?",
+      prompt: "Do you need login/auth for the first release?",
       answer: "",
       why: "Auth changes security requirements and task order.",
     },
@@ -73,7 +73,7 @@ export function generateQuestions(idea: string): ClarifyingQuestion[] {
   if (lower.includes("ai") || lower.includes("llm") || lower.includes("chat")) {
     base.push({
       id: uid("q"),
-      prompt: "Should the MVP use a live AI API or mock responses first?",
+      prompt: "Should the project use a live AI API or prepared responses first?",
       answer: "",
       why: "API keys and cost constraints affect architecture.",
     });
@@ -89,11 +89,11 @@ export function generateRequirements(
   const answers = Object.fromEntries(
     questions.map((q) => [q.prompt, q.answer.trim() || "(not specified)"]),
   );
-  const mvp =
-    answers["What is the must-have feature for a first MVP demo?"] ||
+  const coreFeature =
+    answers["What is the most important feature for your project?"] ||
     "core happy-path flow";
   const auth =
-    answers["Do you need login/auth in the MVP?"] || "not specified";
+    answers["Do you need login/auth for the first release?"] || "not specified";
   const stack =
     answers["What tech stack constraints do you have (language, host, DB)?"] ||
     "not specified";
@@ -108,7 +108,7 @@ export function generateRequirements(
       priority: "must",
     },
     {
-      text: `Deliver MVP focus: ${mvp}`,
+    text: `Deliver project focus: ${coreFeature}`,
       priority: "must",
     },
     {
@@ -116,7 +116,7 @@ export function generateRequirements(
       priority: "should",
     },
     {
-      text: `Auth decision for MVP: ${auth}`,
+      text: `Auth decision for first release: ${auth}`,
       priority: "should",
     },
     {
@@ -124,7 +124,7 @@ export function generateRequirements(
       priority: "must",
     },
     {
-      text: "Include a testing checklist and README for graders/demo",
+      text: "Include a testing checklist and README for reviewers",
       priority: "should",
     },
     {
@@ -172,12 +172,12 @@ export function generateTasks(
       ownerAgent: "database",
       dependencies: [],
       expectedOutput: "Entity list with key fields and relationships",
-      constraints: "Keep MVP storage simple; no secrets in plain text",
+      constraints: "Keep storage simple; no secrets in plain text",
       state: "queued",
     },
     {
       title: "Design core API endpoints",
-      description: "Specify request/response shapes for the main MVP flow",
+      description: "Specify request/response shapes for the main project flow",
       ownerAgent: "backend",
       dependencies: [],
       expectedOutput: "Endpoint table with methods, inputs, outputs",
@@ -208,16 +208,16 @@ export function generateTasks(
       ownerAgent: "backend",
       dependencies: [],
       expectedOutput: "Handler outline with failure/retry notes",
-      constraints: "Retry once on timeout; surface conflicts to manager",
+      constraints: "Retry once on timeout; surface review issues to manager",
       state: "queued",
     },
     {
       title: "Create testing checklist",
-      description: "Acceptance checks for MVP demo and grader walkthrough",
+      description: "Acceptance checks for the project and reviewer walkthrough",
       ownerAgent: "testing",
       dependencies: [],
       expectedOutput: "Prioritized test checklist",
-      constraints: "Cover approvals, conflicts, and revision loop",
+      constraints: "Cover approvals, review issues, and revision loop",
       state: "queued",
     },
     {
@@ -340,7 +340,7 @@ export async function runAgentWithRetry(
     frontend: `UI plan for "${task.title}": screens, key controls, and approval CTAs aligned to ${project.title}.`,
     backend: `API plan for "${task.title}": endpoints, validation rules, and timeout/retry handling.`,
     database: `Data model for "${task.title}": entities Project, Requirement, Task, AgentOutput, Review, Feedback.`,
-    testing: `Testing checklist for "${task.title}": happy path, approval gates, conflict cases, revision loop.`,
+    testing: `Testing checklist for "${task.title}": happy path, approval gates, review issue cases, revision loop.`,
     documentation: `Docs outline for "${task.title}": setup, workflow steps, agent roles, metrics, privacy notes.`,
   };
 
@@ -354,7 +354,7 @@ export async function runAgentWithRetry(
     summary: summaryByRole[role] ?? `Completed planning for ${task.title}.`,
     assumptions: [
       `Target user is ${project.targetUser}`,
-      "MVP prioritizes planning over production deployment",
+      "The project prioritizes planning over production deployment",
       AGENTS.find((a) => a.role === role)?.capability ?? "specialist capability",
     ],
     blockers: confidence < 0.8 ? ["Needs clearer acceptance criteria from user"] : [],
@@ -435,10 +435,10 @@ export function reviewOutputs(
       conflicts.push("Frontend output may not address UI concerns");
     }
     if (task?.ownerAgent === "backend" && output.summary.toLowerCase().includes("schema only")) {
-      conflicts.push("Backend output conflicts with API expectations");
+      conflicts.push("Backend output may not match API expectations");
     }
 
-    // Cross-output conflict: docs vs testing coverage mention
+    // Cross-output review issue: docs vs testing coverage mention
     const testingOut = outputs.find((o) =>
       tasks.find((t) => t.id === o.taskId)?.ownerAgent === "testing",
     );
@@ -470,7 +470,7 @@ export function reviewOutputs(
   const conflictItems = reviews.flatMap((r) => r.conflicts);
   const conflictSummary =
     conflictItems.length > 0
-      ? `Manager conflict summary: ${conflictItems.join("; ")}`
+      ? `Manager review summary: ${conflictItems.join("; ")}`
       : null;
 
   return { reviews, conflictSummary };
