@@ -12,6 +12,7 @@ const ts = require('typescript');
 function harness() {
   const slots = [];
   let cursor = 0;
+  let effects = [];
   const failures = new Set();
   const calls = [];
   const react = {
@@ -26,6 +27,7 @@ function harness() {
       if (!(i in slots)) slots[i] = { current: initial };
       return slots[i];
     },
+    useEffect: (callback) => { effects.push(callback); },
     useCallback: (callback) => callback,
     useMemo: (callback) => callback(),
   };
@@ -39,6 +41,7 @@ function harness() {
     }).outputText;
     const localRequire = (name) => {
       if (name === 'react') return react;
+      if (name.startsWith('@/lib/')) return load(path.resolve(__dirname, '../src/lib', name.slice(6) + '.ts'));
       if (!name.startsWith('.')) return require(name);
       const base = path.resolve(path.dirname(filename), name);
       const resolved = ['.ts', '.tsx'].map((ext) => base + ext).find(fs.existsSync);
@@ -55,8 +58,8 @@ function harness() {
   }
   const root = path.resolve(__dirname, '../src/lib');
   const { ProjectStoreProvider } = load(path.join(root, 'store.tsx'));
-  const get = () => { cursor = 0; return ProjectStoreProvider({ children: null }).props.value; };
-  return { get, failures, calls, workflow: load(path.join(root, 'workflow.ts')), exporter: load(path.join(root, 'plan-export.ts')) };
+  const get = () => { cursor = 0; effects = []; return ProjectStoreProvider({ children: null }).props.value; };
+  return { get, effects: () => effects, failures, calls, workflow: load(path.join(root, 'workflow.ts')), exporter: load(path.join(root, 'plan-export.ts')), manager: load(path.join(root, 'manager-schema.ts')), route: load(path.resolve(root, '../app/api/manager/route.ts')) };
 }
 function planned(h) {
   h.get().startDemoProject();
@@ -198,4 +201,77 @@ test('export rejects unapproved state, includes approved data and labels estimat
   for (const label of ['Approved requirements', 'Ordered task plan', 'Approved agent outputs', 'Testing / acceptance information', 'Documentation information', 'Estimated planning time saved', 'not measured']) assert(markdown.includes(label));
   assert(markdown.includes(h.get().tasks[0].id));
   assert(markdown.includes(h.get().outputs[0].summary));
+});
+
+
+test('live manager validates tasks and cannot bypass approved requirements', async () => {
+  const h = harness();
+  const project = { id: 'p', description: 'A student study planner' };
+  const task = { id: 't1', title: 'Build planner', description: 'Create calendar', ownerAgent: 'frontend', dependencies: [], expectedOutput: 'Calendar UI', constraints: [] };
+  const tasks = h.manager.normalizeManagerItems('tasks', [task], 'p');
+  assert.equal(tasks[0].state, 'queued');
+  assert.equal(tasks[0].projectId, 'p');
+  assert.throws(() => h.manager.normalizeManagerItems('tasks', [{ ...task, dependencies: ['missing'] }], 'p'), /existing/);
+  assert.throws(() => h.manager.normalizeManagerItems('tasks', [{ ...task, dependencies: ['t2'] }, { ...task, id: 't2', dependencies: ['t1'] }], 'p'), /circular/);
+  assert.throws(() => h.manager.normalizeManagerItems('requirements', [], 'p'), /empty/);
+  const blocked = await h.route.POST(new Request('http://localhost/api/manager', { method: 'POST', body: JSON.stringify({ stage: 'tasks', context: { project, requirements: [{ approvalStatus: 'pending' }] } }) }));
+  assert.equal(blocked.status, 400);
+});
+
+test('live API integration parses structured output and returns sanitized errors', async () => {
+  const h = harness();
+  const originalFetch = global.fetch;
+  const originalKey = process.env.OPENAI_API_KEY;
+  const request = () => new Request('http://localhost/api/manager', { method: 'POST', body: JSON.stringify({ stage: 'questions', context: { project: { id: 'p', description: 'Study planner' } } }) });
+  try {
+    delete process.env.OPENAI_API_KEY;
+    assert.equal((await h.route.POST(request())).status, 503);
+    process.env.OPENAI_API_KEY = 'test-only';
+    global.fetch = async (_url, options) => {
+      const sent = JSON.parse(options.body);
+      assert.equal(sent.text.format.type, 'json_schema');
+      assert.equal(sent.store, false);
+      return Response.json({ status: 'completed', output: [{ content: [{ type: 'output_text', text: JSON.stringify({ items: [{ prompt: 'Who uses it?', why: 'Define audience' }] }) }] }] });
+    };
+    const response = await h.route.POST(request());
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.items[0].answer, '');
+    global.fetch = async () => Response.json({ error: 'secret diagnostic' }, { status: 429 });
+    const error = await h.route.POST(request());
+    assert.equal(error.status, 502);
+    assert.match((await error.json()).error, /limit/);
+  } finally {
+    global.fetch = originalFetch;
+    if (originalKey === undefined) delete process.env.OPENAI_API_KEY; else process.env.OPENAI_API_KEY = originalKey;
+  }
+});
+
+
+test('saved approvals restore and interrupted execution becomes retryable', async () => {
+  const source = harness(); planned(source);
+  const saved = source.get();
+  saved.project = { ...saved.project, status: 'agents_running' };
+  saved.tasks = saved.tasks.map((t, i) => i === 0 ? { ...t, state: 'in_progress' } : t);
+  let raw = JSON.stringify({ version: 2, state: saved, mode: 'live' });
+  const oldWindow = global.window, oldStorage = global.localStorage;
+  global.window = { setTimeout, clearTimeout };
+  global.localStorage = { getItem: () => raw, setItem: (_key, value) => { raw = value; } };
+  try {
+    const restored = harness(); restored.get();
+    restored.effects()[0]();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const state = restored.get();
+    assert.equal(state.hydrated, true);
+    assert.equal(state.managerMode, 'live');
+    assert.equal(state.currentStep, 'board');
+    assert.equal(state.tasks[0].state, 'failed');
+    assert(state.requirements.every((r) => r.approvalStatus === 'approved'));
+    state.goTo('requirements'); restored.get(); restored.effects()[1]();
+    assert.equal(JSON.parse(raw).state.currentStep, 'requirements');
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  } finally {
+    if (oldWindow === undefined) delete global.window; else global.window = oldWindow;
+    if (oldStorage === undefined) delete global.localStorage; else global.localStorage = oldStorage;
+  }
 });

@@ -14,7 +14,7 @@ const DEMO_TARGET_USER =
   "CSE students building small class projects with one shared workspace";
 
 export function IdeaScreen() {
-  const { startProject, startDemoProject, project, goTo } = useProjectStore();
+  const { startProject, startDemoProject, project, goTo, busy } = useProjectStore();
   const [idea, setIdea] = useState("");
   const [targetUser, setTargetUser] = useState("CSE students / hackathon teammates");
 
@@ -89,7 +89,7 @@ export function IdeaScreen() {
 
       <ApprovalBar
         approveLabel="Start clarifying questions"
-        disabled={idea.trim().length < 12}
+        disabled={busy || idea.trim().length < 12}
         onApprove={() => startProject(idea, targetUser)}
         hint={idea.trim().length < 12 ? "Enter a project idea of at least 12 characters to continue, or run the guided workflow." : "Human oversight starts here: nothing is finalized without your approval."}
       />
@@ -98,7 +98,7 @@ export function IdeaScreen() {
 }
 
 export function QuestionsScreen() {
-  const { questions, updateAnswer, submitAnswers, project, requirements } = useProjectStore();
+  const { questions, updateAnswer, submitAnswers, project, requirements, busy } = useProjectStore();
 
   return (
     <div className="max-w-2xl">
@@ -130,7 +130,7 @@ export function QuestionsScreen() {
 
       <ApprovalBar
         approveLabel={requirements.length ? "Return to requirements" : "Generate requirements"}
-        disabled={!requirements.length && questions.some((q) => !q.answer.trim())}
+        disabled={busy || (!requirements.length && questions.some((q) => !q.answer.trim()))}
         onApprove={submitAnswers}
         hint={requirements.length ? "Your requirements and later work are preserved." : "Answer every question before generating requirements."}
       />

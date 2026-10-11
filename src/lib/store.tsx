@@ -3,6 +3,7 @@
 import {
   createContext,
   useCallback,
+  useEffect,
   useContext,
   useMemo,
   useRef,
@@ -30,6 +31,10 @@ import type {
 import { affectedTaskIds, canVisit, invalidateTasks, outputsReady, requirementsReady, validateTasks, type TaskEdit, type WorkflowState } from "./workflow";
 
 type Store = WorkflowState & {
+  managerMode: "demo" | "live";
+  setManagerMode: (mode: "demo" | "live") => void;
+  savedStatus: string;
+  hydrated: boolean;
   busy: boolean;
   editRequirement: (id: string, text: string) => void;
   editTask: (id: string, edit: TaskEdit) => string | null;
@@ -120,6 +125,10 @@ export function ProjectStoreProvider({ children }: { children: ReactNode }) {
   const [state, renderState] = useState<WorkflowState>(initialState);
   const [busy, setBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState("");
+  const [managerMode, changeManagerMode] = useState<"demo" | "live">("demo");
+  const [savedStatus, setSavedStatus] = useState("Loading saved progress…");
+  const [hydrated, setHydrated] = useState(false);
+  const modeRef = useRef<"demo" | "live">("demo");
   const stateRef = useRef(state);
   const busyRef = useRef(false);
   // Update the snapshot in event handlers, never during render. Async actions and
@@ -130,9 +139,90 @@ export function ProjectStoreProvider({ children }: { children: ReactNode }) {
     renderState(next);
   }, []);
 
+  // Defer browser storage hydration until after the first client render.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      try {
+        const raw = localStorage.getItem("projectpilot-v2");
+        if (raw) {
+          const saved = JSON.parse(raw);
+          const restored = { ...initialState(), ...saved.state } as WorkflowState;
+          if (saved.version !== 2 || typeof restored.project?.id !== "string" || !["idea", "questions", "requirements", "tasks", "board", "review", "feedback", "final"].includes(restored.currentStep)) throw new Error("Invalid save");
+          for (const field of ["questions", "requirements", "tasks", "agents", "outputs", "reviews", "feedbackItems", "managerNotes", "staleTaskIds", "revisionTaskIds", "skippedTaskIds"] as const) {
+            if (!Array.isArray(restored[field])) throw new Error("Invalid saved collection");
+          }
+          if (validateTasks(restored.tasks)) throw new Error("Invalid task plan");
+          restored.tasks = restored.tasks.map((t) => (t.state === "in_progress" || (restored.project.status === "revising" && restored.revisionTaskIds.includes(t.id))) ? { ...t, state: "failed" } : t);
+          restored.agents = AGENTS;
+          if (["agents_running", "revising"].includes(restored.project.status)) {
+            restored.project = { ...restored.project, status: "review_pending" };
+            restored.currentStep = "board";
+            restored.workflowNotice = "An interrupted run was restored. Retry unfinished tasks; completed outputs are preserved.";
+          }
+          setState(restored);
+          const mode = saved.mode === "live" ? "live" : "demo";
+          modeRef.current = mode;
+          changeManagerMode(mode);
+        }
+        setSavedStatus("Progress saved on this browser");
+      } catch {
+        setSavedStatus("Saved progress could not be loaded. This session can still be used.");
+      }
+      setHydrated(true);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [setState]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    let message = "Progress saved on this browser";
+    try {
+      localStorage.setItem("projectpilot-v2", JSON.stringify({ version: 2, state, mode: managerMode }));
+    } catch {
+      message = "Saving unavailable. Keep this tab open and export your completed plan.";
+    }
+    const timer = window.setTimeout(() => setSavedStatus(message), 0);
+    return () => window.clearTimeout(timer);
+  }, [state, managerMode, hydrated]);
+
+  const setManagerMode = useCallback((mode: "demo" | "live") => {
+    if (busyRef.current || stateRef.current.project.id) return;
+    modeRef.current = mode;
+    changeManagerMode(mode);
+  }, []);
+
+  const managerRequest = useCallback(async (stage: string, context: unknown) => {
+    busyRef.current = true;
+    setBusy(true);
+    setBusyLabel(`Manager: generating ${stage}…`);
+    try {
+      const response = await fetch("/api/manager", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stage, context }), signal: AbortSignal.timeout(65000),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Manager request failed. Try again.");
+      return result.items;
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+      setBusyLabel("");
+    }
+  }, []);
+
+  const reportManagerError = useCallback((error: unknown) => {
+    setState((s) => ({ ...s, workflowNotice: error instanceof Error ? `${error.message} Your input is preserved. Use the same button to retry.` : "Manager unavailable. Your input is preserved; retry when ready." }));
+  }, [setState]);
+
   const startProject = useCallback((idea: string, targetUser: string) => {
     if (busyRef.current || stateRef.current.project.id) return;
     const project = createProject(idea, targetUser);
+    if (modeRef.current === "live") {
+      void managerRequest("questions", { project }).then((questions) => {
+        setState({ ...initialState(), project, questions, currentStep: "questions", startedAt: Date.now(), managerNotes: [makeNote("questions", "Live manager drafted clarifying questions.")] });
+      }).catch(reportManagerError);
+      return;
+    }
     const questions = generateQuestions(idea);
     setState({
       ...initialState(),
@@ -147,7 +237,7 @@ export function ProjectStoreProvider({ children }: { children: ReactNode }) {
         ),
       ],
     });
-  }, [setState]);
+  }, [setState, managerRequest, reportManagerError]);
 
   const startDemoProject = useCallback(() => {
     const idea =
@@ -155,6 +245,8 @@ export function ProjectStoreProvider({ children }: { children: ReactNode }) {
     const targetUser =
       "CSE students building small class projects with one shared workspace";
     if (busyRef.current || stateRef.current.project.id) return;
+    modeRef.current = "demo";
+    changeManagerMode("demo");
     const project = createProject(idea, targetUser);
     const demoAnswers: Record<string, string> = {
       "Who is the primary user of this project?":
@@ -206,6 +298,13 @@ export function ProjectStoreProvider({ children }: { children: ReactNode }) {
       setState((s) => ({ ...s, currentStep: "requirements" }));
       return;
     }
+    if (modeRef.current === "live" && stateRef.current.questions.every((q) => q.answer.trim())) {
+      const snapshot = stateRef.current;
+      void managerRequest("requirements", { project: snapshot.project, questions: snapshot.questions }).then((requirements) => {
+        setState((s) => ({ ...s, requirements, currentStep: "requirements", project: { ...s.project, status: "requirements_pending" }, workflowNotice: null, managerNotes: withNote(s.managerNotes, "requirements", "Live manager drafted requirements. Review and approve each one.") }));
+      }).catch(reportManagerError);
+      return;
+    }
     setState((s) => {
       const unanswered = s.questions.filter((q) => !q.answer.trim());
       if (unanswered.length > 0) {
@@ -231,7 +330,7 @@ export function ProjectStoreProvider({ children }: { children: ReactNode }) {
         ),
       };
     });
-  }, [setState]);
+  }, [setState, managerRequest, reportManagerError]);
 
   const editRequirement = useCallback((id: string, text: string) => {
     if (busyRef.current || !text.trim()) return;
@@ -267,6 +366,15 @@ export function ProjectStoreProvider({ children }: { children: ReactNode }) {
 
   const approveRequirements = useCallback(() => {
     if (busyRef.current) return;
+    const snapshot = stateRef.current;
+    if (modeRef.current === "live" && requirementsReady(snapshot) && !snapshot.tasks.length) {
+      void managerRequest("tasks", { project: snapshot.project, requirements: snapshot.requirements }).then((tasks) => {
+        const error = validateTasks(tasks);
+        if (error || !tasks.length) throw new Error(error || "Manager returned an empty plan.");
+        setState((s) => ({ ...s, tasks: topologicalOrder(tasks), currentStep: "tasks", workflowNotice: null, project: { ...s.project, status: "tasks_pending", approvedSummary: buildApprovedSummary(s.project, s.requirements, tasks) } }));
+      }).catch(reportManagerError);
+      return;
+    }
     setState((s) => {
       if (!requirementsReady(s)) return s;
       // Revisit without replacing IDs, edits, existing outputs, or approvals.
@@ -278,7 +386,7 @@ export function ProjectStoreProvider({ children }: { children: ReactNode }) {
           workflowNotice: s.staleTaskIds.length ? "Review the updated requirements against this task plan. Existing tasks are preserved; approval will refresh affected outputs." : null,
       };
     });
-  }, [setState]);
+  }, [setState, managerRequest, reportManagerError]);
 
   const editTask = useCallback((id: string, edit: TaskEdit): string | null => {
     const s = stateRef.current;
@@ -485,6 +593,7 @@ export function ProjectStoreProvider({ children }: { children: ReactNode }) {
   const value = useMemo<Store>(
     () => ({
       ...state,
+      managerMode, setManagerMode, savedStatus, hydrated,
       metrics: computeMetrics({ ...state, usefulnessScore: state.metrics.usefulnessScore }),
       canNavigate: (step) => !busy && canVisit(state, step),
       editRequirement, editTask, approveOutput, requestRevision, selectRevisionTasks, retryTask, skipTask,
@@ -506,7 +615,7 @@ export function ProjectStoreProvider({ children }: { children: ReactNode }) {
       goTo,
     }),
     [
-      state,
+      state, managerMode, setManagerMode, savedStatus, hydrated,
       editRequirement, editTask, approveOutput, requestRevision, selectRevisionTasks, retryTask, skipTask,
       busy,
       busyLabel,
