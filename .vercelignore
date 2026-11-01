@@ -1,0 +1,10 @@
+.git
+.claude
+.env*
+docs
+scripts
+tests
+AGENTS.md
+CLAUDE.md
+README.md
+*.tsbuildinfo

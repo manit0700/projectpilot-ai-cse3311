@@ -70,7 +70,7 @@ export function generateQuestions(idea: string): ClarifyingQuestion[] {
     });
   }
 
-  if (lower.includes("ai") || lower.includes("llm") || lower.includes("chat")) {
+  if (/\b(ai|llm|chat|chatbot)\b/i.test(lower)) {
     base.push({
       id: uid("q"),
       prompt: "Should the project use a live AI API or prepared responses first?",

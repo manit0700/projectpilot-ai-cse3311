@@ -126,13 +126,15 @@ export function MetricsPanel() {
             max={10}
             value={metrics.usefulnessScore}
             onChange={(e) => setUsefulness(Number(e.target.value))}
-            className="accent-teal-700"
+            aria-describedby="usefulness-help"
+            className="min-h-6 accent-teal-700"
           />
           <span className="w-6 font-mono text-slate-900">
             {metrics.usefulnessScore}
           </span>
         </label>
       </div>
+      <p id="usefulness-help" className="mb-4 text-sm text-slate-600">Usefulness is your rating from 1 (not useful) to 10 (very useful). It is saved with this session and included in export. It does not affect agent decisions, approvals or navigation. Time saved is an estimate.</p>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         {items.map((item) => (
           <div
@@ -196,4 +198,15 @@ export function ApprovalBar({
       {hint && <p id={hintId} className="w-full text-sm text-slate-600">{hint}</p>}
     </div>
   );
+}
+
+export function BottomNavigation() {
+  const { currentStep, canNavigate, goTo, busy } = useProjectStore();
+  const i = WORKFLOW_STEPS.findIndex((s) => s.id === currentStep);
+  const previous = WORKFLOW_STEPS[i-1], next = WORKFLOW_STEPS[i+1];
+  return <nav aria-label="Bottom workflow navigation" className="mt-8 flex flex-wrap items-center gap-4 border-t border-slate-200 pt-5">
+    <button type="button" disabled={busy || !previous || !canNavigate(previous.id)} onClick={() => previous && goTo(previous.id)} className="rounded-xl border border-slate-300 px-4 py-3 disabled:opacity-50">Previous step</button>
+    <button type="button" disabled={busy || !next || !canNavigate(next.id)} onClick={() => next && goTo(next.id)} className="rounded-xl border border-slate-300 px-4 py-3 disabled:opacity-50">Next step</button>
+    <p className="text-sm text-slate-600">Step {i+1} of {WORKFLOW_STEPS.length}. Complete the current approval before opening a locked step.</p>
+  </nav>;
 }

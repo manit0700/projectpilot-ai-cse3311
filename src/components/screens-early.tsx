@@ -4,6 +4,7 @@ import { ApprovalBar } from "@/components/shell";
 import { AGENT_LABELS } from "@/lib/agents";
 import { useProjectStore } from "@/lib/store";
 import { TaskEditor } from "@/components/task-editor";
+import { enoughDetail } from "@/lib/input-rules";
 import { requirementsReady, taskLabel } from "@/lib/workflow";
 import { useState } from "react";
 
@@ -14,9 +15,9 @@ const DEMO_TARGET_USER =
   "CSE students building small class projects with one shared workspace";
 
 export function IdeaScreen() {
-  const { startProject, startDemoProject, project, goTo, busy } = useProjectStore();
-  const [idea, setIdea] = useState("");
-  const [targetUser, setTargetUser] = useState("CSE students / hackathon teammates");
+  const { startProject, startDemoProject, project, goTo, busy, draftBrief } = useProjectStore();
+  const [idea, setIdea] = useState(draftBrief?.idea || "");
+  const [targetUser, setTargetUser] = useState(draftBrief?.targetUser || "CSE students / hackathon teammates");
 
   const loadDemoText = () => {
     setIdea(DEMO_IDEA);
@@ -41,6 +42,8 @@ export function IdeaScreen() {
       <p className="mt-3 text-base leading-relaxed text-slate-600">
         Describe a class project, hackathon app, or portfolio idea. The Manager
         Agent will clarify scope, draft requirements, and assign specialist agents.
+        Best fits include a study planner, local task tracker, or club signup prototype.
+        Specialists generate deliverables for you to review, integrate, and test.
       </p>
 
       <label className="mt-6 block text-sm font-medium text-slate-800">
@@ -48,6 +51,7 @@ export function IdeaScreen() {
         <textarea
           value={idea}
           onChange={(e) => setIdea(e.target.value)}
+          minLength={12}
           rows={5}
           placeholder="e.g. A campus study-group matcher with availability calendars and course filters"
           className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none ring-teal-700/30 focus:ring-2"
@@ -57,6 +61,7 @@ export function IdeaScreen() {
       <label className="mt-4 block text-sm font-medium text-slate-800">
         Target user
         <input
+          minLength={3}
           value={targetUser}
           onChange={(e) => setTargetUser(e.target.value)}
           className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none ring-teal-700/30 focus:ring-2"
@@ -89,7 +94,7 @@ export function IdeaScreen() {
 
       <ApprovalBar
         approveLabel="Start clarifying questions"
-        disabled={busy || idea.trim().length < 12}
+        disabled={busy || idea.trim().length < 12 || targetUser.trim().length < 3}
         onApprove={() => startProject(idea, targetUser)}
         hint={idea.trim().length < 12 ? "Enter a project idea of at least 12 characters to continue, or run the guided workflow." : "Human oversight starts here: nothing is finalized without your approval."}
       />
@@ -105,7 +110,7 @@ export function QuestionsScreen() {
       <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl text-slate-900">Clarifying questions</h1>
       <p className="mt-3 text-base leading-relaxed text-slate-600">
         Manager is filling gaps for <span className="font-medium">{project.title}</span>.
-        {requirements.length ? " Original answers are read-only; edit requirements to refine the plan without replacing your work." : " Incomplete answers block requirements generation."}
+        {requirements.length ? " Original answers are read-only; edit requirements to refine the plan without replacing your work." : " Give at least 12 characters per answer, including concrete constraints. Short answers block generation."}
       </p>
 
       <ul className="mt-6 space-y-4">
@@ -120,6 +125,7 @@ export function QuestionsScreen() {
               aria-label={q.prompt}
               value={q.answer}
               onChange={(e) => updateAnswer(q.id, e.target.value)}
+              minLength={12}
               rows={2}
               className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none ring-teal-700/30 focus:ring-2"
               placeholder="Your answer"
@@ -130,7 +136,7 @@ export function QuestionsScreen() {
 
       <ApprovalBar
         approveLabel={requirements.length ? "Return to requirements" : "Generate requirements"}
-        disabled={busy || (!requirements.length && questions.some((q) => !q.answer.trim()))}
+        disabled={busy || (!requirements.length && questions.some((q) => !enoughDetail(q.answer)))}
         onApprove={submitAnswers}
         hint={requirements.length ? "Your requirements and later work are preserved." : "Answer every question before generating requirements."}
       />
@@ -165,12 +171,12 @@ export function RequirementsScreen() {
               <span className={`rounded px-2 py-1 ${r.approvalStatus === "approved" ? "bg-teal-50 text-teal-800" : "bg-amber-50 text-amber-900"}`}>{r.approvalStatus === "rejected" ? "Needs revision" : r.approvalStatus === "approved" ? "Approved" : "Pending review"}</span>
             </div>
             {editingId === r.id ? (
-              <form onSubmit={(event) => { event.preventDefault(); if (draft.trim()) { editRequirement(r.id, draft); setEditingId(null); } }}>
-                <label className="block font-medium">Requirement text<textarea autoFocus required value={draft} onChange={(e) => setDraft(e.target.value)} rows={4} className="mt-2 w-full rounded-xl border border-slate-300 p-3" /></label>
+              <form onSubmit={(event) => { event.preventDefault(); if (enoughDetail(draft)) { editRequirement(r.id, draft); setEditingId(null); } }}>
+                <label className="block font-medium">Requirement text<textarea autoFocus required minLength={12} value={draft} onChange={(e) => setDraft(e.target.value)} rows={4} className="mt-2 w-full rounded-xl border border-slate-300 p-3" /></label>
                 {tasks.length > 0 && <p className="my-3 text-sm text-amber-900">Saving a change reopens the task plan and refreshes its shared-context outputs after approval. Existing tasks and history are preserved.</p>}
-                {!draft.trim() && <p className="mt-2 text-sm text-amber-900">Enter requirement text before saving.</p>}
+                {!enoughDetail(draft) && <p className="mt-2 text-sm text-amber-900">Enter at least 12 characters of requirement detail.</p>}
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <button disabled={!draft.trim()} className="rounded-xl bg-teal-700 px-4 py-2 text-white disabled:opacity-50">Save requirement</button>
+                  <button disabled={!enoughDetail(draft)} className="rounded-xl bg-teal-700 px-4 py-2 text-white disabled:opacity-50">Save requirement</button>
                   <button type="button" onClick={() => setEditingId(null)} className="rounded-xl border border-slate-300 px-4 py-2">Cancel</button>
                 </div>
               </form>

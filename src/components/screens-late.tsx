@@ -4,7 +4,8 @@ import { ApprovalBar } from "@/components/shell";
 import { AGENT_LABELS } from "@/lib/agents";
 import { useProjectStore } from "@/lib/store";
 import type { AgentRole, TaskState } from "@/lib/types";
-import { outputsReady, taskLabel } from "@/lib/workflow";
+import { enoughDetail } from "@/lib/input-rules";
+import { hasConflict, outputsReady, taskLabel } from "@/lib/workflow";
 import { downloadPlan } from "@/lib/plan-export";
 import { useState } from "react";
 
@@ -136,11 +137,11 @@ export function ReviewScreen() {
     outputs,
     reviews,
     tasks,
-    approveOutputs, approveOutput, requestRevision, busy, staleTaskIds, goTo,
+    approveOutputs, approveOutput, requestRevision, busy, staleTaskIds, goTo, managerMode, approveTaskPlan,
   } = useProjectStore();
   const allApproved = tasks.length > 0 && tasks.every((t) => t.state === "completed" && outputs.some((o) => o.taskId === t.id && o.approved === "approved"));
   const hasRevision = outputs.some((o) => o.approved === "rejected");
-  const incomplete = tasks.some((t) => t.state !== "completed") || staleTaskIds.length > 0;
+  const incomplete = tasks.some((t) => t.state !== "completed") || staleTaskIds.length > 0 || outputs.some((o) => !reviews.some((r) => r.outputId === o.id));
 
   return (
     <div className="max-w-4xl">
@@ -151,11 +152,14 @@ export function ReviewScreen() {
       </p>
 
       <div className="mt-4 rounded-xl border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-900">
-        Review complete — no conflicts found.
+        {reviews.length === outputs.length && outputs.length > 0
+          ? `${managerMode === "live" ? "AI review" : "Demo checks"} complete · ${reviews.filter((r) => r.result !== "pass").length} output(s) need attention. Human approval is still required.`
+          : "Review is incomplete. Finish tasks or retry review before approving outputs."}
+        {managerMode === "live" && tasks.every((t) => t.state === "completed") && <button type="button" disabled={busy} onClick={() => void approveTaskPlan()} className="ml-3 underline disabled:opacity-50">Retry review</button>}
       </div>
 
       <p className="mt-4 font-medium" aria-live="polite">Approved: {outputs.filter((o) => o.approved === "approved").length} · Pending: {outputs.filter((o) => o.approved === "pending").length} · Needs revision: {outputs.filter((o) => o.approved === "rejected").length}</p>
-      {incomplete && <div className="mt-4 rounded-xl bg-amber-50 p-4"><p>Finish failed, blocked, or outdated tasks before continuing.</p><button type="button" className="mt-2 underline" onClick={() => goTo("board")}>Return to agent board</button></div>}
+      {incomplete && <div className="mt-4 rounded-xl bg-amber-50 p-4"><p>Finish unfinished tasks and retry any missing review before continuing.</p><button type="button" className="mt-2 underline" onClick={() => goTo("board")}>Return to agent board</button></div>}
       <ul className="mt-6 space-y-3">
         {outputs.map((o) => {
           const task = tasks.find((t) => t.id === o.taskId);
@@ -187,7 +191,7 @@ export function ReviewScreen() {
                 )}
               </div>
               <p className={`mt-3 font-semibold ${o.approved === "approved" ? "text-teal-800" : "text-amber-900"}`}>Human review: {o.approved === "approved" ? "Approved" : o.approved === "rejected" ? "Needs revision" : "Pending review"}</p>
-              <p className="mt-2 text-base leading-relaxed text-slate-700">{o.summary}</p>
+              <p className="mt-2 whitespace-pre-wrap text-base leading-relaxed text-slate-700">{o.summary}</p>
               <div className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
                 <div>
                   <div className="font-semibold text-slate-800">Assumptions</div>
@@ -223,10 +227,10 @@ export function ReviewScreen() {
                   </div>
                 )}
               <div className="mt-4 flex flex-wrap gap-3">
-                <button type="button" disabled={busy || staleTaskIds.includes(o.taskId) || task?.state !== "completed"} onClick={() => approveOutput(o.id)} className={`rounded-xl border px-4 py-2 font-semibold ${o.approved === "approved" ? "border-teal-700 bg-teal-700 text-white" : "border-slate-300 bg-white text-slate-700"}`}>Approve output</button>
+                <button type="button" disabled={busy || hasConflict({ reviews }, o.id) || !review || staleTaskIds.includes(o.taskId) || task?.state !== "completed"} onClick={() => approveOutput(o.id)} className={`rounded-xl border px-4 py-2 font-semibold ${o.approved === "approved" ? "border-teal-700 bg-teal-700 text-white" : "border-slate-300 bg-white text-slate-700"}`}>Approve output</button>
                 <button type="button" disabled={busy || staleTaskIds.length > 0 || task?.state !== "completed"} onClick={() => requestRevision(o.id)} className={`rounded-xl border px-4 py-2 font-semibold ${o.approved === "rejected" ? "border-teal-700 bg-teal-700 text-white" : "border-slate-300 bg-white text-slate-700"}`}>Request revision</button>
               </div>
-              {review && review.result !== "pass" && <p className="mt-2 text-sm text-amber-900">Review findings remain visible. Approve only if you explicitly accept these limitations, or request revision.</p>}
+              {review && review.result !== "pass" && <p className="mt-2 text-sm text-amber-900">Conflicts block approval and final export. Request a revision to resolve them, then rerun review. Other findings remain visible for your assessment.</p>}
               <div className="mt-2 font-mono text-sm text-slate-600">
                 Confidence {Math.round(o.confidence * 100)}% · blockers{" "}
                 {o.blockers.length ? o.blockers.join("; ") : "none"}
@@ -262,7 +266,7 @@ export function FeedbackScreen() {
 
       <fieldset disabled={busy} className="mt-5 space-y-3 rounded-xl border border-slate-200 p-4">
         <legend className="px-1 font-semibold">Choose outputs to revise</legend>
-        <p className="text-sm text-slate-600">Only selected outputs will change. Other output approvals are preserved. Select dependent outputs too if your change affects them.</p>
+        <p className="text-sm text-slate-600">In Live API mode, selected outputs and all dependent outputs are revised in dependency order. Unrelated approvals are preserved. Demo mode changes only your selection.</p>
         {tasks.filter((t) => outputs.some((o) => o.taskId === t.id)).map((t) => <label key={t.id} className="flex items-start gap-3">
           <input type="checkbox" className="mt-1 size-4 shrink-0 accent-teal-700" checked={revisionTaskIds.includes(t.id)} onChange={(e) => selectRevisionTasks(e.target.checked ? [...revisionTaskIds, t.id] : revisionTaskIds.filter((id) => id !== t.id))} />
           <span>{taskLabel(t)} — {AGENT_LABELS[t.ownerAgent]}</span>
@@ -276,6 +280,7 @@ export function FeedbackScreen() {
         aria-label="Feedback for the Manager Agent"
         value={text}
         onChange={(e) => setText(e.target.value)}
+        minLength={12}
         rows={4}
         placeholder="e.g. Expand the UI screens list and add auth edge cases to the API plan"
         className="mt-6 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none ring-teal-700/30 focus:ring-2"
@@ -299,11 +304,11 @@ export function FeedbackScreen() {
       <ApprovalBar
         approveLabel={busy ? "Revising…" : "Apply feedback"}
         secondaryLabel={ready ? "Skip revisions & finalize approved plan" : "Skip revisions & return to review"}
-        disabled={busy || !text.trim() || !revisionTaskIds.length}
+        disabled={busy || !enoughDetail(text) || !revisionTaskIds.length}
         secondaryDisabled={busy}
         onApprove={() => void submitFeedback(text)}
         onSecondary={skipFeedback}
-        hint={busy ? "Wait for the revision to finish." : "Select outputs and describe the change to apply feedback. Skipping never approves pending or revised work."}
+        hint={busy ? "Wait for the revision to finish." : "Select outputs and describe the change in at least 12 characters. Skipping never approves pending or revised work."}
       />
     </div>
   );
@@ -416,7 +421,7 @@ export function FinalScreen() {
 
       <p className="mt-4 text-sm text-slate-500">
         Reviews logged: {reviews.length}. Planning support only; no repository writes or deployment.
-        This session is not saved across page refreshes. Download Markdown to keep the final plan.
+        Progress is saved in this browser. Download Markdown to keep a separate copy of the deliverables.
       </p>
 
       <ApprovalBar

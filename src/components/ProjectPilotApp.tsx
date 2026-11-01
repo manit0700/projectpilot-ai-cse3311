@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   FeedbackScreen,
   FinalScreen,
@@ -13,7 +13,9 @@ import {
   RequirementsScreen,
   TasksScreen,
 } from "@/components/screens-early";
+import { LiveAccess } from "./live-access";
 import {
+  BottomNavigation,
   ManagerPanel,
   MetricsPanel,
   WorkflowStepper,
@@ -46,6 +48,13 @@ function ScreenRouter() {
 
 function AppShell() {
   const { reset, currentStep, busy, workflowNotice, managerMode, setManagerMode, savedStatus, hydrated, project } = useProjectStore();
+  const [liveReady, setLiveReady] = useState(false);
+  useEffect(() => {
+    if (managerMode !== "live") return;
+    let cancelled = false;
+    fetch("/api/live-access").then((r) => r.json()).then((result) => { if (!cancelled) setLiveReady(result.authenticated === true); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [managerMode]);
   const mainRef = useRef<HTMLElement>(null);
   const previousStep = useRef(currentStep);
   useEffect(() => {
@@ -67,7 +76,8 @@ function AppShell() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <label className="text-sm font-medium">Manager mode <select aria-label="Manager mode" value={managerMode} disabled={busy || !!project.id || !hydrated} onChange={(e) => setManagerMode(e.target.value as "demo" | "live")} className="ml-2 rounded-lg border border-slate-300 p-2"><option value="demo">Demo</option><option value="live">Live API</option></select></label>
+            <label className="text-sm font-medium">Agent mode <select aria-label="Agent mode" value={managerMode} disabled={busy || !!project.id || !hydrated} onChange={(e) => setManagerMode(e.target.value as "demo" | "live")} className="ml-2 rounded-lg border border-slate-300 p-2"><option value="demo">Demo</option><option value="live">Live API</option></select></label>
+            {managerMode === "live" && <button type="button" disabled={busy} className="underline" onClick={() => setLiveReady(false)}>Live access</button>}
             {currentStep !== "idea" && (
               <button
                 type="button"
@@ -81,20 +91,25 @@ function AppShell() {
           </div>
         </div>
         <div className="mx-auto max-w-7xl px-4 pb-5 sm:px-6">
-          <p className="mb-2 text-sm text-slate-600" role="status">{savedStatus} · Specialist agents use prepared demo responses.</p>
+          <p className="mb-2 text-sm text-slate-600" role="status">{savedStatus} <button type="button" className="underline" onClick={() => {
+            const raw = localStorage.getItem("projectpilot-recovery");
+            if (!raw) return;
+            const url = URL.createObjectURL(new Blob([raw], { type: "text/plain" }));
+            const link = document.createElement("a"); link.href = url; link.download = "projectpilot-recovery.txt"; link.click(); URL.revokeObjectURL(url);
+          }}>Download recovery data</button> · {managerMode === "live" ? "Live manager, specialists, and review · Generated code needs human testing." : "Demo mode · Prepared sample responses."}</p>
           <WorkflowStepper />
         </div>
       </header>
 
       <div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+        <MetricsPanel />
         <div className="grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
           <main ref={mainRef} id="main-content" tabIndex={-1} className="scroll-mt-6 min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
             {workflowNotice && <p role="status" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-relaxed text-amber-950">{workflowNotice}</p>}
-            {hydrated ? <ScreenRouter /> : <p role="status">Loading saved project…</p>}
+            {hydrated ? managerMode === "live" && !liveReady ? <LiveAccess onUnlocked={() => setLiveReady(true)} /> : <><ScreenRouter /><BottomNavigation /></> : <p role="status">Loading saved project…</p>}
           </main>
           <ManagerPanel />
         </div>
-        <MetricsPanel />
       </div>
     </div>
   );

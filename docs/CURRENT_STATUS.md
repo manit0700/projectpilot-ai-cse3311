@@ -2,58 +2,31 @@
 
 Last updated: September 20, 2026
 
-## Current Phase
+## Current phase — November 1, 2026
 
-Iteration 1 demo polish complete enough to present. Shared GitHub repo is active on `master`.
+Iteration 3 implementation: live specialist deliverables, dependency-aware revisions, AI review and bounded retries. See [Iteration 3 behavior, setup and demo](ITERATION_3.md).
 
-## Repo
+- Live manager planning and browser persistence from Iteration 2 remain active.
+- Live specialist calls now receive prerequisite outputs and generate task-specific deliverables.
+- Feedback regenerates selected tasks and their dependents; unrelated approvals survive.
+- AI review checks outputs together; review failure is visible and retryable.
+- Generated code must still be inspected, integrated and tested by the user.
+- External user feedback, comparative evaluation and the final written submission remain outstanding.
 
-- GitHub: https://github.com/manit0700/projectpilot-ai-cse3311
-- Local folder: `projectpilot-ai` (tracks `origin/master`)
-- Latest commits include UI improvements PR merge and demo-first presentation assets
+## Repository
 
-## What Is Done
-
-- Student-focused, single-user MVP scope locked in project memory
-- Full mock workflow live: idea → questions → requirements → tasks → agents → review → feedback → final plan
-- Guided classroom demo sample (`Run guided demo`)
-- Per-output human approval and request-revision loop
-- Task editing before plan approval; editable requirements
-- Markdown final-plan download
-- Workflow helpers + basic workflow tests (`tests/workflow.test.cjs`)
-- Demo script, demo recording (`.webm`), GitHub team instructions
-- Iteration 1 presentations in `docs/presentations/` (including demo-first deck + screenshots)
-- UI layout improvements merged from PR #1
-
-## What Is Still Missing / Out Of Scope For Now
-
-- Live AI API calls (intentionally mock-only unless team requests API work)
-- Persistence across refresh (session is in-memory)
-- Automatic deployment / repo write actions (blocked by design)
-- Enterprise / multi-user collaboration features (out of MVP scope)
-
-## What Needs Team Input
-
-- Confirm final project name stays ProjectPilot AI
-- Assign the four team member roles / presenters
-- Confirm repo public vs private and teammate write access
-- Collect quick feedback from 3 to 5 students
-- Confirm whether OpenAI is the first planned AI API (later iteration)
-
-## Next Team Tasks
-
-1. Run the guided demo locally before presenting (`npm run dev` → `Run guided demo`)
-2. Practice with `docs/DEMO_SCRIPT.md`
-3. Use the demo-first deck in `docs/presentations/`
-4. Collect student feedback after the demo
-5. Decide next iteration priorities (persistence vs live AI vs polish only)
-
-## Simple Team Update Message
-
-ProjectPilot AI MVP is demo-ready on GitHub. The app runs a full mock Manager-led workflow with approval checkpoints, per-output review, feedback revisions, and Markdown export. Iteration 1 presentation and demo script are in `docs/`. Still mock-only and in-memory; no auto-deploy. Next: practice the guided demo and gather student feedback.
+https://github.com/manit0700/projectpilot-ai-cse3311 (local: projectpilot-ai)
 
 ## Iteration 2 implementation — October 10, 2026
 
 Implemented optional live manager planning through `/api/manager`, structured response and dependency validation, browser persistence for the current project, interrupted-run recovery, and manager retry handling. Existing editing and approval gates remain active. Demo / Live mode is explicit; specialist execution remains prepared responses for Iteration 3.
 
-See `docs/ITERATION_2_DEMO.md` for tomorrow's presentation and API configuration. Live end-to-end verification still needs a configured API key; this checkout contains none. Browser refresh persistence was verified in Safari. The older "missing live API / persistence" notes above describe the prior iteration.
+See `docs/ITERATION_2_DEMO.md` for tomorrow's presentation and API configuration. A real live manager API test passed on October 11, 2026: questions, requirements, and tasks all completed successfully using the locally configured key. Browser refresh persistence was verified in Safari. The older "missing live API / persistence" notes above describe the prior iteration.
+
+## Production hosting — November 1, 2026
+
+Vercel production: https://projectpilot-ai-cse3311.vercel.app
+
+Deployed from the local working tree using Vercel CLI. Production OPENAI_API_KEY and OPENAI_MODEL are configured server-side. vercel.json explicitly selects Next.js; .vercelignore excludes local secrets and course documents. Browser saves are scoped to this new origin; localhost saves do not automatically transfer.
+
+To redeploy authorized changes: `vercel deploy --prod --scope manit-dankharas-projects`. Git-based automatic deployments have not been configured.

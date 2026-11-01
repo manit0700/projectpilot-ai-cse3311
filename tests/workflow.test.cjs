@@ -50,7 +50,7 @@ function harness() {
       return { ...exports, runAgentWithRetry: async (task) => {
         calls.push(task.id);
         if (failures.has(task.id)) throw new Error('Injected test failure');
-        return { id: `out-${task.id}-${calls.length}`, taskId: task.id, summary: `Mock output for ${task.title}`, assumptions: [], blockers: [], confidence: 0.9, nextSteps: [], retryCount: 0, approved: 'pending' };
+        return { id: `out-${task.id}-${calls.length}`, taskId: task.id, summary: `UI API testing deliverable for ${task.title}`, assumptions: [], blockers: [], confidence: 0.9, nextSteps: [], retryCount: 0, approved: 'pending' };
       } };
     };
     new Function('require', 'module', 'exports', source)(localRequire, loadedModule, loadedModule.exports);
@@ -59,7 +59,7 @@ function harness() {
   const root = path.resolve(__dirname, '../src/lib');
   const { ProjectStoreProvider } = load(path.join(root, 'store.tsx'));
   const get = () => { cursor = 0; effects = []; return ProjectStoreProvider({ children: null }).props.value; };
-  return { get, effects: () => effects, failures, calls, workflow: load(path.join(root, 'workflow.ts')), exporter: load(path.join(root, 'plan-export.ts')), manager: load(path.join(root, 'manager-schema.ts')), route: load(path.resolve(root, '../app/api/manager/route.ts')) };
+  return { get, effects: () => effects, failures, calls, workflow: load(path.join(root, 'workflow.ts')), exporter: load(path.join(root, 'plan-export.ts')), manager: load(path.join(root, 'manager-schema.ts')), specialistRoute: load(path.resolve(root, '../app/api/specialist/route.ts')), specialistSchema: load(path.join(root, 'specialist-schema.ts')), route: load(path.resolve(root, '../app/api/manager/route.ts')) };
 }
 function planned(h) {
   h.get().startDemoProject();
@@ -218,6 +218,15 @@ test('live manager validates tasks and cannot bypass approved requirements', asy
   assert.equal(blocked.status, 400);
 });
 
+test('browser origin uses the requested host and rejects foreign origins', async () => {
+  const h = harness();
+  const body = JSON.stringify({ stage: 'tasks', context: { project: { id: 'p', description: 'Study planner' }, requirements: [] } });
+  const sameHost = await h.route.POST(new Request('http://localhost:3312/api/manager', { method: 'POST', headers: { origin: 'http://127.0.0.1:3312', host: '127.0.0.1:3312' }, body }));
+  assert.equal(sameHost.status, 400); // Passes origin check, fails approval gate.
+  const foreign = await h.route.POST(new Request('http://localhost:3312/api/manager', { method: 'POST', headers: { origin: 'http://other.example', host: 'localhost:3312' }, body }));
+  assert.equal(foreign.status, 403);
+});
+
 test('live API integration parses structured output and returns sanitized errors', async () => {
   const h = harness();
   const originalFetch = global.fetch;
@@ -274,4 +283,153 @@ test('saved approvals restore and interrupted execution becomes retryable', asyn
     if (oldWindow === undefined) delete global.window; else global.window = oldWindow;
     if (oldStorage === undefined) delete global.localStorage; else global.localStorage = oldStorage;
   }
+});
+
+function specialistPayload(h, overrides = {}) {
+  planned(h);
+  const s = h.get();
+  return { stage: 'execute', taskId: s.tasks[0].id, context: { ...s, planApproved: true }, ...overrides };
+}
+const specialistRequest = (body, origin = 'http://localhost') => new Request('http://localhost/api/specialist', { method: 'POST', headers: { origin }, body: JSON.stringify(body) });
+const deliverable = (summary = 'Concrete deliverable with implementation') => ({ summary, assumptions: [], blockers: [], confidence: 0.8, nextSteps: ['Run the generated tests locally'] });
+const modelResponse = (value) => Response.json({ status: 'completed', output: [{ content: [{ type: 'output_text', text: JSON.stringify(value) }] }] });
+
+test('specialists reject unapproved plans, malformed context, foreign origins and blocked dependencies', async () => {
+  const h = harness(); const body = specialistPayload(h);
+  for (const context of [null, {}, { ...body.context, planApproved: false }, { ...body.context, tasks: [null] }, { ...body.context, requirements: [null] }]) {
+    assert.equal((await h.specialistRoute.POST(specialistRequest({ ...body, context }))).status, 400);
+  }
+  assert.equal((await h.specialistRoute.POST(specialistRequest(body, 'http://foreign.example'))).status, 403);
+  assert.equal((await h.specialistRoute.POST(specialistRequest(body, 'invalid'))).status, 403);
+  const dependent = body.context.tasks.find((t) => t.dependencies.length);
+  assert.equal((await h.specialistRoute.POST(specialistRequest({ ...body, taskId: dependent.id }))).status, 400);
+  assert.equal((await h.specialistRoute.POST(specialistRequest({ ...body, stage: 'review' }))).status, 400);
+});
+
+test('specialist retries invalid output once, keeps credentials server-side and normalizes approval', async () => {
+  const h = harness(), body = specialistPayload(h);
+  const oldFetch = global.fetch, key = process.env.OPENAI_API_KEY;
+  try {
+    delete process.env.OPENAI_API_KEY;
+    assert.equal((await h.specialistRoute.POST(specialistRequest(body))).status, 503);
+    process.env.OPENAI_API_KEY = 'test-only';
+    let calls = 0;
+    global.fetch = async (_url, options) => {
+      calls++;
+      const sent = JSON.parse(options.body);
+      assert.equal(options.headers.Authorization, 'Bearer test-only');
+      assert.equal(sent.store, false);
+      assert.equal(sent.text.format.strict, true);
+      assert(sent.instructions.includes(body.context.tasks[0].ownerAgent));
+      assert(!options.body.includes('test-only'));
+      return modelResponse(calls === 1 ? { ...deliverable(), confidence: 4 } : { ...deliverable(), approved: 'approved' });
+    };
+    const response = await h.specialistRoute.POST(specialistRequest(body));
+    assert.equal(response.status, 200);
+    const result = await response.json();
+    assert.equal(calls, 2);
+    assert.equal(result.output.retryCount, 1);
+    assert.equal(result.output.approved, 'pending');
+    assert.equal(result.output.taskId, body.taskId);
+    for (const status of [401, 429]) {
+      calls = 0;
+      global.fetch = async () => { calls++; return Response.json({ secret: 'internal diagnostic' }, { status }); };
+      const failure = await h.specialistRoute.POST(specialistRequest(body));
+      assert.equal(failure.status, 502);
+      assert.equal(calls, 1);
+      assert(!(await failure.text()).includes('internal diagnostic'));
+    }
+    calls = 0;
+    global.fetch = async () => { calls++; throw new DOMException('timeout', 'TimeoutError'); };
+    assert.equal((await h.specialistRoute.POST(specialistRequest(body))).status, 502);
+    assert.equal(calls, 2);
+  } finally { global.fetch = oldFetch; if (key === undefined) delete process.env.OPENAI_API_KEY; else process.env.OPENAI_API_KEY = key; }
+});
+
+test('review validation requires exactly one review per output and cannot hide conflicts under pass', () => {
+  const h = harness();
+  const output = h.specialistSchema.normalizeSpecialist(deliverable(), 't1');
+  const row = { outputId: output.id, result: 'pass', missingItems: [], conflicts: ['Schema mismatch'], suggestions: [] };
+  assert.equal(h.specialistSchema.normalizeReviews({ reviews: [row] }, [output])[0].result, 'conflict');
+  assert.throws(() => h.specialistSchema.normalizeReviews({ reviews: [] }, [output]));
+  assert.throws(() => h.specialistSchema.normalizeReviews({ reviews: [{ ...row, outputId: 'invented' }] }, [output]));
+  assert.throws(() => h.specialistSchema.normalizeReviews({ reviews: [row, row] }, [output, { ...output, id: 'other' }]));
+});
+
+async function restoredLiveHarness() {
+  const source = harness(); planned(source);
+  const oldWindow = global.window, oldStorage = global.localStorage;
+  global.window = { setTimeout, clearTimeout };
+  global.localStorage = { getItem: () => JSON.stringify({ version: 2, state: source.get(), mode: 'live' }) };
+  try {
+    const h = harness(); h.get(); h.effects()[0]();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    return h;
+  } finally {
+    if (oldWindow === undefined) delete global.window; else global.window = oldWindow;
+    if (oldStorage === undefined) delete global.localStorage; else global.localStorage = oldStorage;
+  }
+}
+
+test('live workflow passes prerequisite outputs, revises dependents and preserves unrelated approvals', async () => {
+  const h = await restoredLiveHarness();
+  const oldFetch = global.fetch;
+  const calls = [];
+  let failId = '', reviewFails = false;
+  global.fetch = async (_url, options) => {
+    const body = JSON.parse(options.body);
+    if (body.stage === 'review') {
+      if (reviewFails) return Response.json({ error: 'Review unavailable' }, { status: 502 });
+      return Response.json({ reviews: body.context.outputs.map((o) => ({ outputId: o.id, result: 'pass', missingItems: [], conflicts: [], suggestions: [] })) });
+    }
+    calls.push(body);
+    if (body.taskId === failId) return Response.json({ error: 'Injected service failure' }, { status: 502 });
+    const task = body.context.tasks.find((t) => t.id === body.taskId);
+    for (const id of task.dependencies) assert(body.context.outputs.some((o) => o.taskId === id));
+    return Response.json({ output: { ...deliverable(body.feedback ? `Rewritten deliverable: ${body.feedback}` : `Deliverable for ${body.taskId}`), id: `live-${calls.length}`, taskId: body.taskId, retryCount: 0 } });
+  };
+  try {
+    await h.get().approveTaskPlan();
+    assert.equal(h.calls.length, 0); // No mock specialist path in Live mode.
+    assert(h.get().tasks.every((t) => t.state === 'completed'));
+    approveAll(h);
+    const root = h.get().tasks.find((t) => h.get().tasks.some((d) => d.dependencies.includes(t.id)));
+    const affected = h.workflow.affectedTaskIds(h.get().tasks, [root.id]);
+    const untouched = h.get().outputs.filter((o) => !affected.includes(o.taskId));
+    h.get().requestRevision(h.get().outputs.find((o) => o.taskId === root.id).id);
+    await h.get().submitFeedback('Use stable IDs and include keyboard navigation');
+    assert.deepEqual(h.get().feedbackItems[0].affectedTasks, affected);
+    assert.equal(h.get().feedbackItems[0].revisionStatus, 'applied');
+    for (const id of affected) {
+      const output = h.get().outputs.find((o) => o.taskId === id);
+      assert(output.summary.includes('Use stable IDs'));
+      assert.equal(output.approved, 'pending');
+      assert(calls.some((c) => c.taskId === id && c.previousOutput && c.feedback));
+    }
+    for (const output of untouched) assert.equal(h.get().outputs.find((o) => o.id === output.id), output);
+    assert.equal(h.get().canNavigate('final'), false);
+    // Failure keeps the old deliverable for reference, and retry reuses feedback.
+    failId = root.id;
+    h.get().selectRevisionTasks([root.id]);
+    await h.get().submitFeedback('Add error states');
+    assert.equal(h.get().tasks.find((t) => t.id === root.id).state, 'failed');
+    assert.equal(h.get().feedbackItems[0].revisionStatus, 'open');
+    failId = '';
+    await h.get().retryTask(root.id);
+    await h.get().approveTaskPlan();
+    assert.equal(h.get().feedbackItems[0].revisionStatus, 'applied');
+    assert(h.get().outputs.find((o) => o.taskId === root.id).summary.includes('Add error states'));
+    // Review failure cannot be represented as a successful AI review.
+    reviewFails = true;
+    await h.get().approveTaskPlan();
+    assert.equal(h.get().reviews.length, 0);
+    assert.match(h.get().workflowNotice, /Review unavailable/);
+    assert.equal(h.get().canNavigate('final'), false);
+    const output = h.get().outputs[0];
+    h.get().approveOutput(output.id);
+    assert.equal(h.get().outputs[0].approved, output.approved);
+    reviewFails = false;
+    await h.get().approveTaskPlan();
+    assert.equal(h.get().reviews.length, h.get().outputs.length);
+  } finally { global.fetch = oldFetch; }
 });

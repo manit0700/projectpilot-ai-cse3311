@@ -32,4 +32,4 @@ https://developers.openai.com/api/docs/guides/structured-outputs
 
 ## Validation
 
-Production build and workflow tests cover approval gates, non-destructive navigation, targeted revisions, dependency validation, structured API responses, missing keys, API limits, and refresh recovery. A real billed API call has not been verified because this checkout has no API key configured. Safari was used to verify a sample project and requirement approval survive a refresh.
+Production build and workflow tests cover approval gates, non-destructive navigation, targeted revisions, dependency validation, structured API responses, missing keys, API limits, and refresh recovery. On October 11, 2026, a real live manager API test passed all three stages: 5 clarifying questions, 8 requirements, and 7 tasks with valid dependencies. The test used a synthetic campus study planner brief and approved requirements to exercise the task-generation gate. Safari was used to verify a sample project and requirement approval survive a refresh.

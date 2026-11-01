@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { AGENTS, uid } from "./agents";
+import { runLiveSpecialist, runLiveReview } from "./specialist-client";
 import {
   buildApprovedSummary,
   computeMetrics,
@@ -28,7 +29,8 @@ import type {
   WorkflowStep,
 } from "./types";
 
-import { affectedTaskIds, canVisit, invalidateTasks, outputsReady, requirementsReady, validateTasks, type TaskEdit, type WorkflowState } from "./workflow";
+import { enoughDetail } from "./input-rules";
+import { hasConflict, affectedTaskIds, canVisit, invalidateTasks, outputsReady, requirementsReady, validateTasks, type TaskEdit, type WorkflowState } from "./workflow";
 
 type Store = WorkflowState & {
   managerMode: "demo" | "live";
@@ -152,6 +154,10 @@ export function ProjectStoreProvider({ children }: { children: ReactNode }) {
             if (!Array.isArray(restored[field])) throw new Error("Invalid saved collection");
           }
           if (validateTasks(restored.tasks)) throw new Error("Invalid task plan");
+          if (!restored.outputs.every((o) => o && typeof o.id === "string" && typeof o.summary === "string" && Array.isArray(o.assumptions) && Array.isArray(o.blockers) && Array.isArray(o.nextSteps)) ||
+              !restored.requirements.every((r) => r && typeof r.id === "string" && typeof r.text === "string") ||
+              !restored.questions.every((q) => q && typeof q.prompt === "string" && typeof q.answer === "string") ||
+              !restored.reviews.every((r) => r && typeof r.outputId === "string" && Array.isArray(r.conflicts) && Array.isArray(r.missingItems) && Array.isArray(r.suggestions))) throw new Error("Invalid saved content");
           restored.tasks = restored.tasks.map((t) => (t.state === "in_progress" || (restored.project.status === "revising" && restored.revisionTaskIds.includes(t.id))) ? { ...t, state: "failed" } : t);
           restored.agents = AGENTS;
           if (["agents_running", "revising"].includes(restored.project.status)) {
@@ -166,7 +172,11 @@ export function ProjectStoreProvider({ children }: { children: ReactNode }) {
         }
         setSavedStatus("Progress saved on this browser");
       } catch {
-        setSavedStatus("Saved progress could not be loaded. This session can still be used.");
+        try {
+          const damaged = localStorage.getItem("projectpilot-v2");
+          if (damaged) localStorage.setItem("projectpilot-recovery", damaged);
+        } catch { /* Storage may be unavailable; keep the session usable. */ }
+        setSavedStatus("Saved progress could not be loaded. A recovery copy was kept when storage was available. Start a new project or download recovery data.");
       }
       setHydrated(true);
     }, 0);
@@ -215,9 +225,10 @@ export function ProjectStoreProvider({ children }: { children: ReactNode }) {
   }, [setState]);
 
   const startProject = useCallback((idea: string, targetUser: string) => {
-    if (busyRef.current || stateRef.current.project.id) return;
+    if (busyRef.current || stateRef.current.project.id || !enoughDetail(idea) || targetUser.trim().length < 3) return;
     const project = createProject(idea, targetUser);
     if (modeRef.current === "live") {
+      setState((s) => ({ ...s, draftBrief: { idea, targetUser } }));
       void managerRequest("questions", { project }).then((questions) => {
         setState({ ...initialState(), project, questions, currentStep: "questions", startedAt: Date.now(), managerNotes: [makeNote("questions", "Live manager drafted clarifying questions.")] });
       }).catch(reportManagerError);
@@ -298,7 +309,7 @@ export function ProjectStoreProvider({ children }: { children: ReactNode }) {
       setState((s) => ({ ...s, currentStep: "requirements" }));
       return;
     }
-    if (modeRef.current === "live" && stateRef.current.questions.every((q) => q.answer.trim())) {
+    if (modeRef.current === "live" && stateRef.current.questions.every((q) => enoughDetail(q.answer))) {
       const snapshot = stateRef.current;
       void managerRequest("requirements", { project: snapshot.project, questions: snapshot.questions }).then((requirements) => {
         setState((s) => ({ ...s, requirements, currentStep: "requirements", project: { ...s.project, status: "requirements_pending" }, workflowNotice: null, managerNotes: withNote(s.managerNotes, "requirements", "Live manager drafted requirements. Review and approve each one.") }));
@@ -306,7 +317,7 @@ export function ProjectStoreProvider({ children }: { children: ReactNode }) {
       return;
     }
     setState((s) => {
-      const unanswered = s.questions.filter((q) => !q.answer.trim());
+      const unanswered = s.questions.filter((q) => !enoughDetail(q.answer));
       if (unanswered.length > 0) {
         return {
           ...s,
@@ -333,7 +344,7 @@ export function ProjectStoreProvider({ children }: { children: ReactNode }) {
   }, [setState, managerRequest, reportManagerError]);
 
   const editRequirement = useCallback((id: string, text: string) => {
-    if (busyRef.current || !text.trim()) return;
+    if (busyRef.current || !enoughDetail(text)) return;
     setState((s) => {
       const requirement = s.requirements.find((r) => r.id === id);
       if (!requirement || requirement.text === text.trim()) return s;
@@ -406,8 +417,8 @@ export function ProjectStoreProvider({ children }: { children: ReactNode }) {
     return null;
   }, [setState]);
 
-  // Use the existing single-agent runner so failures and retries are isolated.
-  // No generator changes or backend execution infrastructure are needed.
+  // Live workers receive completed prerequisite deliverables. Serial scheduling
+  // bounds API usage and makes failures independent of unrelated completed work.
   const executeTasks = useCallback(async (onlyId?: string) => {
     const snapshot = stateRef.current;
     if (busyRef.current || !requirementsReady(snapshot) || !snapshot.tasks.length || validateTasks(snapshot.tasks)) return;
@@ -439,24 +450,38 @@ export function ProjectStoreProvider({ children }: { children: ReactNode }) {
           agents: prev.agents.map((a) => ({ ...a, availability: a.role === task.ownerAgent ? "busy" : "available" })),
         }));
         try {
-          const output = await runAgentWithRetry(task, s.project);
+          const pendingFeedback = s.feedbackItems.find((f) => f.revisionStatus === "open" && f.affectedTasks.includes(task.id));
+          const output = modeRef.current === "live"
+            ? await runLiveSpecialist(task, s, pendingFeedback?.userRequest, s.outputs.find((o) => o.taskId === task.id))
+            : await runAgentWithRetry(task, s.project);
           if (output.taskId !== task.id || !output.summary?.trim()) throw new Error("Invalid agent output");
           setState((prev) => ({ ...prev,
             tasks: prev.tasks.map((t) => t.id === task.id ? { ...t, state: "completed" } : t),
             outputs: [...prev.outputs.filter((o) => o.taskId !== task.id), { ...output, approved: "pending" }],
             staleTaskIds: prev.staleTaskIds.filter((id) => id !== task.id),
           }));
-        } catch {
+        } catch (error) {
           setState((prev) => ({ ...prev,
             tasks: prev.tasks.map((t) => t.id === task.id ? { ...t, state: "failed" } : t),
-            workflowNotice: `Execution failed for ${task.title}. Retry this task on the board; successful tasks are preserved.`,
+            workflowNotice: `Execution failed for ${task.title}. ${error instanceof Error ? error.message : "Retry this task on the board."} Successful work is preserved.`,
           }));
         }
       }
+      let liveReview: Awaited<ReturnType<typeof runLiveReview>> | null = null;
+      let reviewError = "";
+      if (modeRef.current === "live" && stateRef.current.tasks.every((t) => t.state === "completed")) {
+        setBusyLabel("Review Agent: checking deliverables…");
+        try { liveReview = await runLiveReview(stateRef.current); }
+        catch (error) { reviewError = error instanceof Error ? error.message : "Review failed. Retry review."; }
+      }
       setState((s) => {
-        const { reviews, conflictSummary } = reviewOutputs(s.outputs, s.tasks);
+        const { reviews, conflictSummary } = modeRef.current === "live"
+          ? liveReview || { reviews: [], conflictSummary: null } : reviewOutputs(s.outputs, s.tasks);
         const complete = s.tasks.every((t) => t.state === "completed");
         return { ...s, reviews, conflictSummary,
+          workflowNotice: reviewError ? `Review unavailable: ${reviewError} Use Retry review; outputs are preserved.` : complete ? null : s.workflowNotice,
+          feedbackItems: s.feedbackItems.map((f) => f.revisionStatus === "open" && f.affectedTasks.every((id) => s.tasks.find((t) => t.id === id)?.state === "completed") ? { ...f, revisionStatus: "applied" } : f),
+          revisionTaskIds: complete ? [] : s.revisionTaskIds,
           currentStep: complete ? "review" : "board",
           project: { ...s.project, status: "review_pending" },
           agents: s.agents.map((a) => ({ ...a, availability: "available" })),
@@ -484,7 +509,7 @@ export function ProjectStoreProvider({ children }: { children: ReactNode }) {
     if (busyRef.current) return;
     setState((s) => {
       const output = s.outputs.find((o) => o.id === id);
-      if (!output || !s.planApproved || !requirementsReady(s) || s.staleTaskIds.includes(output.taskId) || s.tasks.find((t) => t.id === output.taskId)?.state !== "completed") return s;
+      if ((modeRef.current === "live" && !s.reviews.some((r) => r.outputId === id)) || !output || hasConflict(s, id) || !s.planApproved || !requirementsReady(s) || s.staleTaskIds.includes(output.taskId) || s.tasks.find((t) => t.id === output.taskId)?.state !== "completed") return s;
       return { ...s,
         outputs: s.outputs.map((o) => o.id === id ? { ...o, approved: "approved" } : o),
         revisionTaskIds: s.revisionTaskIds.filter((taskId) => taskId !== output.taskId),
@@ -523,7 +548,20 @@ export function ProjectStoreProvider({ children }: { children: ReactNode }) {
   const submitFeedback = useCallback(async (text: string) => {
     const s = stateRef.current;
     const selected = s.revisionTaskIds.filter((id) => s.outputs.some((o) => o.taskId === id) && s.tasks.find((t) => t.id === id)?.state === "completed");
-    if (busyRef.current || !text.trim() || !selected.length || !s.planApproved || s.staleTaskIds.length) return;
+    if (busyRef.current || !enoughDetail(text) || !selected.length || !s.planApproved || s.staleTaskIds.length) return;
+    if (modeRef.current === "live") {
+      // Revise the transitive dependents too: a changed schema/interface must not
+      // leave previously approved consumers silently pointing at stale work.
+      const affected = affectedTaskIds(s.tasks, selected);
+      const feedback = { id: uid("fb"), projectId: s.project.id, userRequest: text.trim(), affectedTasks: affected, revisionStatus: "open" as const };
+      setState({ ...s, tasks: s.tasks.map((t) => affected.includes(t.id) ? { ...t, state: "needs_revision" } : t),
+        outputs: s.outputs.map((o) => affected.includes(o.taskId) ? { ...o, approved: "pending" } : o),
+        reviews: [], revisionTaskIds: affected, feedbackItems: [feedback, ...s.feedbackItems],
+        project: { ...s.project, status: "revising" },
+      });
+      await executeTasks();
+      return;
+    }
     busyRef.current = true;
     setBusy(true);
     setBusyLabel("Revising selected outputs…");
@@ -536,7 +574,8 @@ export function ProjectStoreProvider({ children }: { children: ReactNode }) {
       await new Promise((resolve) => setTimeout(resolve, 600));
       setState((prev) => {
         const outputs = prev.outputs.map((o) => selected.includes(o.taskId) ? {
-          ...o, summary: `${o.summary} Revision requested: "${text.trim()}".`,
+          ...o, summary: `Demo revised deliverable for ${prev.tasks.find((t) => t.id === o.taskId)?.title}: UI/API plan updated for the requested acceptance criteria. Testing covers happy paths, invalid inputs and recovery. Documentation includes setup and testing. Requested criteria: ${text.trim()}`,
+          blockers: [],
           nextSteps: ["Review the revision", "Await explicit human approval"], approved: "pending" as const,
         } : o);
         const tasks = prev.tasks.map((t) => selected.includes(t.id) ? { ...t, state: "completed" as const } : t);
@@ -553,7 +592,7 @@ export function ProjectStoreProvider({ children }: { children: ReactNode }) {
       setBusy(false);
       setBusyLabel("");
     }
-  }, [setState]);
+  }, [setState, executeTasks]);
 
   const skipFeedback = useCallback(() => {
     if (busyRef.current) return;

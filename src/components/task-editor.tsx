@@ -23,8 +23,8 @@ export function TaskEditor({ task, onClose }: { task: Task; onClose: () => void 
       if (!message) onClose();
     }}>
       <h2 className="text-lg font-semibold">Edit {taskLabel(task)}</h2>
-      <label className="block font-medium">Task title<input autoFocus required value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} /></label>
-      <label className="block font-medium">Task description<textarea required rows={3} value={description} onChange={(e) => setDescription(e.target.value)} className={inputClass} /></label>
+      <label className="block font-medium">Task title<input autoFocus required minLength={3} value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} /></label>
+      <label className="block font-medium">Task description<textarea required minLength={12} rows={3} value={description} onChange={(e) => setDescription(e.target.value)} className={inputClass} /></label>
       <label className="block font-medium">Assigned agent<select value={ownerAgent} onChange={(e) => setOwnerAgent(e.target.value as AgentRole)} className={inputClass}>
         {agents.filter((a) => a.role !== "manager" && a.role !== "review").map((a) => <option key={a.id} value={a.role}>{AGENT_LABELS[a.role]}</option>)}
       </select></label>

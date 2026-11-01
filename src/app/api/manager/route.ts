@@ -1,3 +1,4 @@
+import { requireLiveAccess } from "@/lib/live-access";
 import { managerSchema, normalizeManagerItems, type ManagerStage } from "@/lib/manager-schema";
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -6,8 +7,12 @@ export async function GET() {
   return Response.json({ configured: Boolean(process.env.OPENAI_API_KEY?.trim()) }, { headers: { "Cache-Control": "no-store" } });
 }
 export async function POST(request: Request) {
+  const denied = requireLiveAccess(request);
+  if (denied) return denied;
   const origin = request.headers.get("origin");
-  if (origin && origin !== new URL(request.url).origin) return Response.json({ error: "Request origin is not allowed." }, { status: 403 });
+  try {
+    if (origin && new URL(origin).host !== (request.headers.get("host") || new URL(request.url).host)) return Response.json({ error: "Request origin is not allowed." }, { status: 403 });
+  } catch { return Response.json({ error: "Invalid origin." }, { status: 403 }); }
   let payload;
   try {
     const body = await request.text();
@@ -15,8 +20,8 @@ export async function POST(request: Request) {
     payload = JSON.parse(body);
   } catch { return Response.json({ error: "Invalid request body." }, { status: 400 }); }
   const { stage, context } = payload ?? {};
-  if (!["questions", "requirements", "tasks"].includes(stage) || !context?.project || typeof context.project.id !== "string" || !context.project.id || typeof context.project.description !== "string" || !context.project.description.trim()) return Response.json({ error: "A valid project and planning stage are required." }, { status: 400 });
-  if (stage === "requirements" && (!Array.isArray(context.questions) || !context.questions.length || !context.questions.every((q: { answer?: unknown }) => typeof q.answer === "string" && q.answer.trim()))) return Response.json({ error: "Answer all clarifying questions first." }, { status: 400 });
+  if (!["questions", "requirements", "tasks"].includes(stage) || !context?.project || typeof context.project.id !== "string" || !context.project.id || typeof context.project.description !== "string" || context.project.description.trim().length < 12) return Response.json({ error: "A valid project and planning stage are required." }, { status: 400 });
+  if (stage === "requirements" && (!Array.isArray(context.questions) || !context.questions.length || !context.questions.every((q: { answer?: unknown }) => typeof q.answer === "string" && q.answer.trim().length >= 12))) return Response.json({ error: "Answer all clarifying questions first." }, { status: 400 });
   if (stage === "tasks" && (!Array.isArray(context.requirements) || !context.requirements.length || !context.requirements.every((r: { approvalStatus?: unknown }) => r.approvalStatus === "approved"))) return Response.json({ error: "Approve every requirement before generating tasks." }, { status: 400 });
   const key = process.env.OPENAI_API_KEY?.trim();
   if (!key) return Response.json({ error: "Live manager needs OPENAI_API_KEY in .env.local. Add it and restart the server, or reset and choose Demo." }, { status: 503 });

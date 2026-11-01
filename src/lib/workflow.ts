@@ -7,6 +7,7 @@ export type WorkflowState = ProjectContext & {
   revisionTaskIds: string[];
   skippedTaskIds: string[];
   workflowNotice: string | null;
+  draftBrief?: { idea: string; targetUser: string };
 };
 
 export type TaskEdit = Pick<Task, "title" | "description" | "ownerAgent" | "dependencies">;
@@ -14,10 +15,14 @@ export const taskLabel = (task: Task) => `TASK-${String(task.order).padStart(2, 
 export const requirementsReady = (s: ProjectContext) =>
   s.requirements.length > 0 && s.requirements.every((r) => r.approvalStatus === "approved");
 
+export function hasConflict(s: Pick<ProjectContext, "reviews">, outputId: string): boolean {
+  return s.reviews.some((r) => r.outputId === outputId && (r.result === "conflict" || r.conflicts.length > 0));
+}
+
 export function outputsReady(s: WorkflowState): boolean {
   return requirementsReady(s) && s.planApproved && s.staleTaskIds.length === 0 &&
     s.tasks.length > 0 && s.tasks.every((task) => task.state === "completed" &&
-      s.outputs.some((o) => o.taskId === task.id && o.approved === "approved"));
+      s.outputs.some((o) => o.taskId === task.id && o.approved === "approved" && s.reviews.some((r) => r.outputId === o.id) && !hasConflict(s, o.id)));
 }
 
 export function frontier(s: ProjectContext): number {
@@ -63,7 +68,7 @@ export function validateTasks(tasks: Task[]): string | null {
   const ids = new Set(tasks.map((t) => t.id));
   if (ids.size !== tasks.length) return "Task IDs must be unique.";
   for (const task of tasks) {
-    if (!task.title.trim() || !task.description.trim()) return "Enter a task title and description.";
+    if (task.title.trim().length < 3 || task.description.trim().length < 12) return "Enter at least 3 characters for the title and 12 for the description.";
     if (!AGENTS.some((a) => a.role === task.ownerAgent && !["manager", "review"].includes(a.role))) return "Choose a specialist agent.";
     if (task.dependencies.includes(task.id)) return "A task cannot depend on itself.";
     if (task.dependencies.some((id) => !ids.has(id))) return "Choose dependencies from the existing task list.";

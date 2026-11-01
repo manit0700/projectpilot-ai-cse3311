@@ -1,5 +1,7 @@
 # ProjectPilot AI
 
+Live app: https://projectpilot-ai-cse3311.vercel.app
+
 Student-focused, single-user AI project manager for class projects, hackathons, and portfolio apps (CSE 3311 MVP).
 
 ## Shared project memory
@@ -68,3 +70,11 @@ Manager planning now supports an explicit **Demo / Live API** selector before a 
 The current project is saved on this browser across refresh; reset clears that saved project. API errors preserve input and can be retried using the same button. This iteration uses single-project local browser storage, not cloud or team synchronization.
 
 See [Iteration 2 demo and setup](docs/ITERATION_2_DEMO.md). Run `node --test tests/workflow.test.cjs`, `npm run lint`, and `npm run build` to validate.
+
+## Iteration 3
+
+Live API mode now runs specialists and cross-output review as well as the manager. Specialists receive prerequisite deliverables; feedback rewrites selected outputs and their dependent outputs. Failed calls retry once automatically and remain manually retryable without discarding successful work. Revised outputs require human approval. Generated code is exported as text for human integration/testing; it is not automatically executed or deployed.
+
+See [Iteration 3 setup, screen flow, limitations and professor-feedback mapping](docs/ITERATION_3.md).
+
+Production live requests require LIVE_ACCESS_CODE on the server. Share this access code privately with reviewers. Visitors must unlock Live API and accept the data-sharing notice; Demo mode remains public.
