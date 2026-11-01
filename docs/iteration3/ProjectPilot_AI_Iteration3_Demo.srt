@@ -1,0 +1,47 @@
+1
+00:00:01,461 --> 00:00:07,882
+Live API requires private reviewer access and consent before sending project context to OpenAI.
+
+2
+00:00:07,882 --> 00:00:12,455
+Iteration 3 live demo: the deployed app uses real OpenAI API responses.
+
+3
+00:00:12,455 --> 00:00:19,871
+The example is a small study tracker. Its scope fits a student web project.
+
+4
+00:00:19,871 --> 00:00:26,288
+The live manager asks questions before drafting requirements.
+
+5
+00:00:26,288 --> 00:00:40,330
+Every requirement needs human approval before the manager creates the task plan.
+
+6
+00:00:40,330 --> 00:00:46,880
+Tasks have specialist roles, expected outputs and dependencies. Approval starts execution.
+
+7
+00:00:46,880 --> 00:01:18,404
+Live specialists run in dependency order and receive completed prerequisite deliverables.
+
+8
+00:01:18,404 --> 00:01:29,752
+The AI review shows findings. It cannot approve its own work or claim generated tests ran.
+
+9
+00:01:29,752 --> 00:02:07,818
+Feedback sends the previous deliverable and requested change back to the selected specialist.
+
+10
+00:02:07,818 --> 00:02:18,168
+The live revision produces a new deliverable. Affected outputs need fresh human approval.
+
+11
+00:02:18,168 --> 00:02:24,306
+The final package includes approved deliverables and revision history. Download keeps a separate copy.
+
+12
+00:02:24,306 --> 00:02:36,760
+Next iteration: assemble actual project files, run builds and tests, and provide a working preview.
