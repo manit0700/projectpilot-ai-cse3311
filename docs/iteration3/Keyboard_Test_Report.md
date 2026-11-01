@@ -19,7 +19,7 @@ Both runs covered the idea, clarification, requirement editing, task editing, bo
 
 Focus checks verified an outline/shadow and a visible, unobscured focus target. These are targeted checks for WCAG 2.1.1, 2.4.7 and 2.4.11 in the tested workflow. They do not certify full WCAG compliance, screen-reader behavior, focus-ring contrast or the logical quality of every possible focus order. Native Reset cancellation uses Playwright's browser-dialog dismiss API; it is not an OS-level test of pressing Escape in a native browser dialog.
 
-The Chrome video is ProjectPilot_AI_Slow_Keyboard_Test.mp4, approximately 3 minutes 2 seconds. Captions identify it as automated testing and appear in a separate band below the captured page. WebKit is a second browser engine; no manual Safari-app testing is claimed.
+The Chrome video is ProjectPilot_AI_Slow_Keyboard_Test.mp4, approximately 3 minutes 2 seconds. The video shows only the application, without an added caption band. This report identifies it as automated testing. WebKit is a second browser engine; no manual Safari-app testing is claimed.
 
 ## Full production-length manager timeout
 
