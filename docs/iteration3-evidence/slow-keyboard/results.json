@@ -1,0 +1,30 @@
+[
+  {
+    "browser": "Chrome",
+    "keyboardOnly": "passed",
+    "planningEditingReviewRevisionExport": "passed",
+    "resetCancel": "passed",
+    "refreshRecovery": "passed",
+    "width320": "passed",
+    "tabPresses": 193,
+    "testType": "automated slow keyboard simulation",
+    "spellingCorrections": 9,
+    "typedCharacters": 562,
+    "focusVisibilityChecks": 49,
+    "durationSeconds": 181.749
+  },
+  {
+    "browser": "WebKit",
+    "keyboardOnly": "passed",
+    "planningEditingReviewRevisionExport": "passed",
+    "resetCancel": "passed",
+    "refreshRecovery": "passed",
+    "width320": "passed",
+    "tabPresses": 189,
+    "testType": "automated slow keyboard simulation",
+    "spellingCorrections": 9,
+    "typedCharacters": 562,
+    "focusVisibilityChecks": 49,
+    "durationSeconds": 184.257
+  }
+]

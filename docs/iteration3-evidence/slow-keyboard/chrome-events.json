@@ -1,0 +1,102 @@
+{
+  "browser": "Chrome",
+  "testType": "automated slow keyboard simulation",
+  "events": [
+    {
+      "seconds": 0.843,
+      "text": "Automated keyboard test in Demo mode. Slow typing and deliberate corrections, not a student session."
+    },
+    {
+      "seconds": 3.207,
+      "text": "Typing and correcting: form field"
+    },
+    {
+      "seconds": 6.374,
+      "text": "Correcting a deliberate spelling mistake with Backspace"
+    },
+    {
+      "seconds": 19.87,
+      "text": "Typing and correcting: form field"
+    },
+    {
+      "seconds": 22.832,
+      "text": "Correcting a deliberate spelling mistake with Backspace"
+    },
+    {
+      "seconds": 29.176,
+      "text": "Typing and correcting: Who is the primary user of this project?"
+    },
+    {
+      "seconds": 32.703,
+      "text": "Correcting a deliberate spelling mistake with Backspace"
+    },
+    {
+      "seconds": 48.662,
+      "text": "Typing and correcting: What is the most important feature for your project?"
+    },
+    {
+      "seconds": 52.128,
+      "text": "Correcting a deliberate spelling mistake with Backspace"
+    },
+    {
+      "seconds": 67.814,
+      "text": "Typing and correcting: What tech stack constraints do you have (language, host, DB)?"
+    },
+    {
+      "seconds": 71.111,
+      "text": "Correcting a deliberate spelling mistake with Backspace"
+    },
+    {
+      "seconds": 87.372,
+      "text": "Typing and correcting: Do you need login/auth for the first release?"
+    },
+    {
+      "seconds": 90.912,
+      "text": "Correcting a deliberate spelling mistake with Backspace"
+    },
+    {
+      "seconds": 107.686,
+      "text": "Typing and correcting: form field"
+    },
+    {
+      "seconds": 111.132,
+      "text": "Correcting a deliberate spelling mistake with Backspace"
+    },
+    {
+      "seconds": 124.177,
+      "text": "Requirements: edit, correct and approve using Tab and Enter"
+    },
+    {
+      "seconds": 129.569,
+      "text": "Typing and correcting: form field"
+    },
+    {
+      "seconds": 131.56,
+      "text": "Correcting a deliberate spelling mistake with Backspace"
+    },
+    {
+      "seconds": 149.911,
+      "text": "Review: inspect results, approve individual outputs and request a revision"
+    },
+    {
+      "seconds": 155.767,
+      "text": "Typing and correcting: Feedback for the Manager Agent"
+    },
+    {
+      "seconds": 158.475,
+      "text": "Correcting a deliberate spelling mistake with Backspace"
+    },
+    {
+      "seconds": 177.261,
+      "text": "Refresh recovery: corrected requirements, task edits and revisions must survive"
+    },
+    {
+      "seconds": 177.455,
+      "text": "Export: verify corrected text and revision content in the actual downloaded Markdown"
+    },
+    {
+      "seconds": 178.748,
+      "text": "PASS: corrected text, approvals, revision, export, reset cancellation and narrow layout"
+    }
+  ]
+}

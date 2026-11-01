@@ -1,0 +1,14 @@
+{
+  "result": "passed",
+  "testType": "automated browser test with actual local manager handler and stub upstream",
+  "deadlineScaled": false,
+  "providerDelayMs": 60000,
+  "handlerDeadlineMs": 55000,
+  "observedSeconds": 55.23,
+  "abortObserved": true,
+  "inputPreserved": true,
+  "refreshPreserved": true,
+  "retrySucceeded": true,
+  "billableRequests": 0,
+  "recordedAt": "2026-11-01T23:13:46.209Z"
+}

@@ -3,9 +3,21 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 const base = process.env.PROJECTPILOT_URL || 'http://localhost:3314';
 const results = [];
+const slow = process.env.SLOW_KEYBOARD === '1';
+const evidenceDir = process.env.KEYBOARD_EVIDENCE_DIR || 'docs/iteration3-evidence/slow-keyboard';
+if (slow) await fs.mkdir(evidenceDir, { recursive: true });
+
 for (const [name, engine, options] of [['Chrome', chromium, { channel: 'chrome' }], ['WebKit', webkit, {}]]) {
   const browser = await engine.launch({ headless: true, ...options });
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 },
+    ...(slow ? { recordVideo: { dir: `${evidenceDir}/raw`, size: { width: 1440, height: 1000 } } } : {}),
+  });
+  const page = await context.newPage();
+  const started = Date.now(), events = [];
+  const note = (text) => { events.push({ seconds: (Date.now() - started) / 1000, text }); console.log(`${name}: ${text}`); };
+  let corrections = 0, typedCharacters = 0, focusChecks = 0;
+  const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
   let tabs = 0;
   async function focus(locator) {
@@ -14,17 +26,50 @@ for (const [name, engine, options] of [['Chrome', chromium, { channel: 'chrome' 
       if (await locator.evaluate((el) => el === document.activeElement)) {
         const box = await locator.boundingBox();
         assert(box && box.height > 0);
+        assert(await locator.evaluate((el) => {
+          const r = el.getBoundingClientRect();
+          const x = Math.min(innerWidth - 1, Math.max(0, r.left + r.width / 2));
+          const y = Math.min(innerHeight - 1, Math.max(0, r.top + r.height / 2));
+          const top = document.elementFromPoint(x, y);
+          return r.bottom > 0 && r.top < innerHeight && (top === el || el.contains(top));
+        }), 'Focused control must be visible and not obscured');
+        focusChecks++;
+
         assert(await locator.evaluate((el) => getComputedStyle(el).outlineStyle !== 'none' || getComputedStyle(el).boxShadow !== 'none'), 'Keyboard focus must be visible');
         return;
       }
       await page.keyboard.press('Tab'); tabs++;
+      if (slow) await wait(55);
     }
     throw Error('Keyboard cannot reach ' + await locator.getAttribute('aria-label'));
   }
-  async function activate(locator) { await focus(locator); await page.keyboard.press('Enter'); }
-  async function type(locator, value) { await focus(locator); await page.keyboard.press('ControlOrMeta+A'); await page.keyboard.insertText(value); }
+  async function activate(locator) { await focus(locator); if (slow) await wait(350); await page.keyboard.press('Enter'); }
+  async function type(locator, value) {
+    await focus(locator); await page.keyboard.press('ControlOrMeta+A');
+    if (!slow) { await page.keyboard.insertText(value); return; }
+    note(`Typing and correcting: ${await locator.getAttribute('aria-label') || await locator.getAttribute('name') || 'form field'}`);
+    async function characters(text) {
+      for (const character of text) {
+        const delay = [160, 240, 180, 300, 220, 150][typedCharacters % 6];
+        await page.keyboard.type(character, { delay }); typedCharacters++;
+        if (character === ' ' && typedCharacters % 3 === 0) await wait(250);
+      }
+    }
+    const word = value.match(/[A-Za-z]{5,}/);
+    if (word) {
+      const start = word.index, correct = word[0];
+      const typo = correct.slice(0, 2) + correct[3] + correct[2] + correct.slice(4);
+      await characters(value.slice(0, start)); await characters(typo); await wait(900);
+      note(`Correcting a deliberate spelling mistake with Backspace`);
+      for (let i = 0; i < typo.length; i++) { await page.keyboard.press('Backspace'); await wait(110); }
+      await characters(correct); corrections++; await characters(value.slice(start + correct.length));
+    } else await characters(value);
+    assert.equal(await locator.inputValue(), value, 'Only corrected text may be submitted');
+    await wait(500);
+  }
   try {
     await page.goto(base);
+    if (slow) { note('Automated keyboard test in Demo mode. Slow typing and deliberate corrections, not a student session.'); await wait(2000); }
     await type(page.getByRole('textbox', { name: 'Project idea', exact: true }), 'A calendar showing study availability and saved sessions');
     await type(page.getByRole('textbox', { name: 'Target user', exact: true }), 'Individual students');
     await activate(page.getByRole('button', { name: 'Start clarifying questions', exact: true }));
@@ -38,6 +83,7 @@ for (const [name, engine, options] of [['Chrome', chromium, { channel: 'chrome' 
     await activate(page.getByRole('button', { name: 'Edit', exact: true }).first());
     await type(page.getByRole('textbox', { name: 'Requirement text' }), 'Save *course* and [minutes] with validation and stable IDs');
     await activate(page.getByRole('button', { name: 'Save requirement', exact: true }));
+    if (slow) note('Requirements: edit, correct and approve using Tab and Enter');
     const approvals = page.getByRole('button', { name: 'Approve', exact: true });
     for (let i = 0; i < await approvals.count(); i++) await activate(approvals.nth(i));
     await activate(page.getByRole('button', { name: /Approve requirements/ }));
@@ -51,6 +97,7 @@ for (const [name, engine, options] of [['Chrome', chromium, { channel: 'chrome' 
     await activate(page.getByRole('button', { name: 'Previous step', exact: true }));
     await page.getByRole('heading', { name: 'Agent assignment board', exact: true }).waitFor();
     await activate(page.getByRole('button', { name: 'Open review', exact: true }));
+    if (slow) note('Review: inspect results, approve individual outputs and request a revision');
     const outputs = page.getByRole('button', { name: 'Approve output', exact: true });
     for (let i = 1; i < await outputs.count(); i++) await activate(outputs.nth(i));
     await activate(page.getByRole('button', { name: 'Request revision', exact: true }).first());
@@ -62,8 +109,10 @@ for (const [name, engine, options] of [['Chrome', chromium, { channel: 'chrome' 
     await activate(page.getByRole('button', { name: 'Continue to feedback', exact: true }));
     await activate(page.getByRole('button', { name: 'Skip revisions & finalize approved plan', exact: true }));
     await page.getByRole('heading', { name: 'Final project plan', exact: true }).waitFor();
+    if (slow) note('Refresh recovery: corrected requirements, task edits and revisions must survive');
     await page.reload();
     await page.getByRole('heading', { name: 'Final project plan', exact: true }).waitFor();
+    if (slow) note('Export: verify corrected text and revision content in the actual downloaded Markdown');
     const downloading = page.waitForEvent('download');
     await activate(page.getByRole('button', { name: 'Download Markdown', exact: true }));
     const download = await downloading;
@@ -79,9 +128,21 @@ for (const [name, engine, options] of [['Chrome', chromium, { channel: 'chrome' 
     await page.setViewportSize({ width: 320, height: 800 });
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     assert.deepEqual(errors, []);
-    results.push({ browser: name, keyboardOnly: 'passed', planningEditingReviewRevisionExport: 'passed', resetCancel: 'passed', refreshRecovery: 'passed', width320: 'passed', tabPresses: tabs });
-  } finally { await browser.close(); }
+    if (slow) { note('PASS: corrected text, approvals, revision, export, reset cancellation and narrow layout'); await wait(3000); }
+    results.push({ browser: name, keyboardOnly: 'passed', planningEditingReviewRevisionExport: 'passed', resetCancel: 'passed', refreshRecovery: 'passed', width320: 'passed', tabPresses: tabs, ...(slow ? { testType: 'automated slow keyboard simulation', spellingCorrections: corrections, typedCharacters, focusVisibilityChecks: focusChecks, durationSeconds: (Date.now() - started) / 1000 } : {}) });
+  } catch (error) {
+    if (slow) { note(`FAILED: ${error.message}`); await page.screenshot({ path: `${evidenceDir}/${name.toLowerCase()}-failure.png` }); }
+    throw error;
+  } finally {
+    const video = page.video();
+    await context.close();
+    if (slow && video) {
+      await video.saveAs(`${evidenceDir}/${name.toLowerCase()}-keyboard.webm`);
+      await fs.writeFile(`${evidenceDir}/${name.toLowerCase()}-events.json`, JSON.stringify({ browser: name, testType: 'automated slow keyboard simulation', events }, null, 2));
+    }
+    await browser.close();
+  }
 }
 await fs.mkdir('docs/iteration3-evidence', { recursive: true });
-await fs.writeFile('docs/iteration3-evidence/peer-review-browser-results.json', JSON.stringify(results, null, 2));
+await fs.writeFile(slow ? `${evidenceDir}/results.json` : 'docs/iteration3-evidence/peer-review-browser-results.json', JSON.stringify(results, null, 2));
 console.log(JSON.stringify(results, null, 2));
