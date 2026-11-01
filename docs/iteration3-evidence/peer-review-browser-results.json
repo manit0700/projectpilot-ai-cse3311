@@ -1,0 +1,20 @@
+[
+  {
+    "browser": "Chrome",
+    "keyboardOnly": "passed",
+    "planningEditingReviewRevisionExport": "passed",
+    "resetCancel": "passed",
+    "refreshRecovery": "passed",
+    "width320": "passed",
+    "tabPresses": 193
+  },
+  {
+    "browser": "WebKit",
+    "keyboardOnly": "passed",
+    "planningEditingReviewRevisionExport": "passed",
+    "resetCancel": "passed",
+    "refreshRecovery": "passed",
+    "width320": "passed",
+    "tabPresses": 189
+  }
+]

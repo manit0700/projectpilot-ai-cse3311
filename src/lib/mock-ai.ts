@@ -341,7 +341,7 @@ export async function runAgentWithRetry(
     backend: `API plan for "${task.title}": endpoints, validation rules, and timeout/retry handling.`,
     database: `Data model for "${task.title}": entities Project, Requirement, Task, AgentOutput, Review, Feedback.`,
     testing: `Testing checklist for "${task.title}": happy path, approval gates, review issue cases, revision loop.`,
-    documentation: `Docs outline for "${task.title}": setup, workflow steps, agent roles, metrics, privacy notes.`,
+    documentation: `Docs outline for "${task.title}": setup, testing checklist, workflow steps, agent roles, metrics, privacy notes.`,
   };
 
   const confidence = shouldTimeout

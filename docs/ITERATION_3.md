@@ -43,7 +43,9 @@ Set PROJECTPILOT_URL if the server uses another address. Browser smoke checks us
 1. The user approves all requirements, edits the task contracts as needed, and approves the task plan.
 2. Tasks run serially in dependency order. A specialist receives the approved brief/requirements, the task contract and actual completed prerequisite deliverables. Serial execution bounds API use; it is not a claim of parallel agent execution.
 3. Each specialist produces summary/deliverable text, assumptions, blockers, confidence and next steps. Generated code can be included as Markdown code blocks with filenames. Application-generated IDs and pending approval prevent a model from approving its own output.
-4. Each server call retries a timeout, malformed response or transient server failure once. Authentication and rate/billing failures return directly. After failure, the board preserves completed unrelated work and offers **Retry task**. Prerequisites remain blocked until the failed task succeeds.
+4. Production live calls require a private reviewer access code and explicit data-sharing consent. Signed HttpOnly cookies expire after eight hours. Demo remains public.
+
+Each server call retries a timeout, malformed response or transient server failure once. Authentication and rate/billing failures return directly. After failure, the board preserves completed unrelated work and offers **Retry task**. Prerequisites remain blocked until the failed task succeeds.
 5. When all tasks complete, the live review agent checks the actual outputs together against their contracts and requirements. A validated review must include exactly one entry per output. Missing reviews prevent final export. **Retry review** reruns review without rerunning completed specialists. Findings stay visible during human approval. Unresolved conflicts block approval and final export.
 6. Feedback regenerates selected outputs and their transitive dependents in dependency order. It sends the original feedback and previous deliverable to each affected specialist. Unrelated approvals are preserved; revised outputs require approval again. An open feedback record survives failures so manual retry can reuse the request.
 7. Editing an approved requirement reopens the existing task plan and invalidates outputs. Review/edit the task contracts before approving again. Requirement changes do not automatically invent new tasks; the preserved plan still needs human checking.
@@ -91,9 +93,9 @@ Professor feedback source: Christoph Csallner, Iteration 2 comments, October 26,
 
 ## Verification results — November 1, 2026
 
-- 15 Node tests passed, including all 11 earlier regression tests and four new specialist/review/live-workflow tests. Live-path tests inject service responses; they do not prove model-generated code works.
+- 21 Node tests passed, including all 11 earlier regression tests and specialist/review/live-workflow and peer-review regression tests. Live-path tests inject service responses; they do not prove model-generated code works.
 - Production build and TypeScript compilation passed.
-- ESLint: zero errors; one existing unused-function warning in scripts/capture-presentation-screens.mjs.
+- ESLint: zero errors. Removed the unused capture helper during review cleanup.
 - Chrome browser smoke: demo workflow, individual approvals, Markdown download, refresh restore, mobile overflow check, Live-mode feedback/review UI with mocked service responses, and no uncaught browser exceptions passed.
 - Real server/API smoke: specialist output, cross-output review and changed feedback revision passed on the ProjectPilot retry-design example. Review returned flagged, not a guaranteed correctness verdict. The first smoke attempt failed with a timeout/invalid-output response; an explicit rerun passed. This illustrates why manual recovery remains necessary.
 - These are developer checks. External customer/user interviews and comparison with a single-agent baseline have not been conducted as part of this implementation.
@@ -103,3 +105,9 @@ Professor feedback source: Christoph Csallner, Iteration 2 comments, October 26,
 The November 1 review pass adds production Live API access-code authentication with a signed HttpOnly cookie and a required data-sharing consent screen. LIVE_ACCESS_CODE must be set server-side before deploying this revision. Demo remains public. Live access is invite-based; distributed usage quotas are not implemented.
 
 Metrics are now above the workflow, with an explanation of the usefulness rating. Bottom Previous/Next controls preserve approval gates. Detail fields enforce minimum lengths. The demo AI keyword uses word boundaries. Damaged saves retain a recovery copy when storage permits. Further timeout, corrupted-save, keyboard, browser and export verification is in progress. External student sessions still require real participants.
+
+## Verified peer-review resolution
+
+Findings 1 to 4: usefulness explanation, metrics above the workflow, bottom navigation, and minimum detail lengths. Finding 5: readable screenshots in the accompanying report. Finding 6: recorded real hosted manager/specialist/review/revision calls. Finding 8: unresolved conflicts block individual approval and final export. Finding 9: Live API regenerates outputs and dependents; Demo now replaces the sample deliverable instead of appending text. Finding 10: correct saved-state message. Finding 11: word-boundary AI keyword matching. Findings 12 and 13: complete keyboard workflow in Chrome and WebKit. Finding 14: mandatory data-sharing consent before live access. Finding 15: delayed abort test preserves the draft and permits retry; deadline scaled to 30 ms for the automated test. Finding 16: invalid JSON, old saves and malformed collections retain a recovery copy and usable session. Finding 17: production requests require a signed access session. This is invite-based authentication, not per-user distributed quotas. Finding 18: edited data, dependency order, approvals, revisions and Markdown character export checks.
+
+Finding 7 remains open: target-student interviews require actual participants. Peer review is documented separately and is not presented as a completed usability study. Full browser results are in docs/iteration3-evidence/peer-review-browser-results.json. WebKit is a second browser engine, not a claim of manual testing in the Safari desktop app.

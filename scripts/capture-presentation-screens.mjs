@@ -8,15 +8,6 @@ async function pause(ms) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function clickIfVisible(page, pattern) {
-  const button = page.getByRole("button", { name: pattern });
-  if ((await button.count()) > 0) {
-    await button.first().click();
-    return true;
-  }
-  return false;
-}
-
 async function main() {
   await fs.mkdir(outDir, { recursive: true });
   const browser = await chromium.launch({ headless: true });

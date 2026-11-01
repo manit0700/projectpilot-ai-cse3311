@@ -30,3 +30,7 @@ Vercel production: https://projectpilot-ai-cse3311.vercel.app
 Deployed from the local working tree using Vercel CLI. Production OPENAI_API_KEY and OPENAI_MODEL are configured server-side. vercel.json explicitly selects Next.js; .vercelignore excludes local secrets and course documents. Browser saves are scoped to this new origin; localhost saves do not automatically transfer.
 
 To redeploy authorized changes: `vercel deploy --prod --scope manit-dankharas-projects`. Git-based automatic deployments have not been configured.
+
+## Peer review follow-up
+
+21 automated tests pass. Keyboard-only planning, editing, review, revision, restore and export passed in Chrome and WebKit. Production live access now requires LIVE_ACCESS_CODE and consent. Conflict findings block approval/export. Target-student interviews remain open.

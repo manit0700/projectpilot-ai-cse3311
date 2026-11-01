@@ -1,4 +1,6 @@
 import { chromium } from 'playwright';
+import { createRequire } from 'node:module';
+createRequire(import.meta.url)('@next/env').loadEnvConfig(process.cwd());
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 const browser = await chromium.launch({ headless: true, channel: "chrome" });
@@ -42,6 +44,7 @@ try {
       : { output: { id: `browser-${body.taskId}`, taskId: body.taskId, summary: `Updated implementation: ${body.feedback}`, assumptions: [], blockers: [], confidence: 0.8, nextSteps: ['Human testing'], retryCount: 0 } };
     await route.fulfill({ json: result });
   });
+  await page.request.post(`${process.env.PROJECTPILOT_URL || 'http://localhost:3313'}/api/live-access`, { data: { code: process.env.LIVE_ACCESS_CODE || '', consent: true } });
   await page.evaluate(() => {
     const saved = JSON.parse(localStorage.getItem('projectpilot-v2'));
     saved.mode = 'live'; saved.state.currentStep = 'review'; saved.state.project.status = 'review_pending';

@@ -59,7 +59,7 @@ function harness() {
   const root = path.resolve(__dirname, '../src/lib');
   const { ProjectStoreProvider } = load(path.join(root, 'store.tsx'));
   const get = () => { cursor = 0; effects = []; return ProjectStoreProvider({ children: null }).props.value; };
-  return { get, effects: () => effects, failures, calls, workflow: load(path.join(root, 'workflow.ts')), exporter: load(path.join(root, 'plan-export.ts')), manager: load(path.join(root, 'manager-schema.ts')), specialistRoute: load(path.resolve(root, '../app/api/specialist/route.ts')), specialistSchema: load(path.join(root, 'specialist-schema.ts')), route: load(path.resolve(root, '../app/api/manager/route.ts')) };
+  return { get, effects: () => effects, failures, calls, workflow: load(path.join(root, 'workflow.ts')), exporter: load(path.join(root, 'plan-export.ts')), manager: load(path.join(root, 'manager-schema.ts')), mock: load(path.join(root, 'mock-ai.ts')), accessRoute: load(path.resolve(root, '../app/api/live-access/route.ts')), specialistRoute: load(path.resolve(root, '../app/api/specialist/route.ts')), specialistSchema: load(path.join(root, 'specialist-schema.ts')), route: load(path.resolve(root, '../app/api/manager/route.ts')) };
 }
 function planned(h) {
   h.get().startDemoProject();
@@ -432,4 +432,116 @@ test('live workflow passes prerequisite outputs, revises dependents and preserve
     await h.get().approveTaskPlan();
     assert.equal(h.get().reviews.length, h.get().outputs.length);
   } finally { global.fetch = oldFetch; }
+});
+
+test('AI demo keyword uses words and does not match availability', () => {
+  const h = harness();
+  assert(!h.mock.generateQuestions('A calendar showing availability').some((q) => q.prompt.includes('AI API')));
+  assert(h.mock.generateQuestions('An AI study assistant').some((q) => q.prompt.includes('AI API')));
+});
+
+test('unresolved conflicts block approval and export until a clean review replaces them', async () => {
+  const h = harness(); await executed(h);
+  const output = h.get().outputs[0], review = h.get().reviews.find((r) => r.outputId === output.id);
+  review.result = 'conflict'; review.conflicts = ['API/schema mismatch'];
+  approveAll(h);
+  assert.equal(h.get().outputs.find((o) => o.id === output.id).approved, 'pending');
+  h.get().skipFeedback(); assert.notEqual(h.get().currentStep, 'final');
+  assert.throws(() => h.exporter.planMarkdown(h.get()), /approval/);
+  review.result = 'pass'; review.conflicts = [];
+  h.get().approveOutput(output.id); h.get().approveOutputs(); h.get().skipFeedback();
+  assert.equal(h.get().currentStep, 'final');
+});
+
+test('production access requires valid signed cookie and explicit consent', async () => {
+  const h = harness(); const old = process.env.LIVE_ACCESS_CODE;
+  process.env.LIVE_ACCESS_CODE = 'test-only-private-code';
+  const access = (body) => new Request('https://localhost/api/live-access', { method: 'POST', body: JSON.stringify(body) });
+  try {
+    assert.equal((await h.route.POST(new Request('https://localhost/api/manager', { method: 'POST', body: '{}' }))).status, 401);
+    assert.equal((await h.specialistRoute.POST(specialistRequest({}))).status, 401);
+    assert.equal((await h.accessRoute.POST(access({ code: 'test-only-private-code', consent: false }))).status, 400);
+    assert.equal((await h.accessRoute.POST(access({ code: 'wrong', consent: true }))).status, 401);
+    const unlocked = await h.accessRoute.POST(access({ code: 'test-only-private-code', consent: true }));
+    assert.equal(unlocked.status, 200);
+    const cookie = unlocked.headers.get('set-cookie');
+    assert(cookie.includes('HttpOnly') && cookie.includes('Secure') && cookie.includes('SameSite=Strict'));
+    assert(!cookie.includes('test-only-private-code'));
+    const status = await h.accessRoute.GET(new Request('https://localhost/api/live-access', { headers: { cookie: cookie.split(';')[0] } }));
+    assert.equal((await status.json()).authenticated, true);
+    const tampered = await h.accessRoute.GET(new Request('https://localhost/api/live-access', { headers: { cookie: cookie.replace(/\d/, '0').split(';')[0] } }));
+    assert.equal((await tampered.json()).authenticated, false);
+  } finally { if (old === undefined) delete process.env.LIVE_ACCESS_CODE; else process.env.LIVE_ACCESS_CODE = old; }
+});
+
+async function restoreState(raw, mode = 'demo') {
+  const oldWindow = global.window, oldStorage = global.localStorage;
+  const data = new Map([['projectpilot-v2', typeof raw === 'string' ? raw : JSON.stringify({ version: 2, state: raw, mode })]]);
+  global.window = { setTimeout, clearTimeout };
+  global.localStorage = { getItem: (k) => data.get(k) || null, setItem: (k, v) => data.set(k, v) };
+  try {
+    const h = harness(); h.get(); h.effects()[0](); await new Promise((resolve) => setTimeout(resolve, 10));
+    return { h, data };
+  } finally { if (oldWindow === undefined) delete global.window; else global.window = oldWindow; if (oldStorage === undefined) delete global.localStorage; else global.localStorage = oldStorage; }
+}
+
+test('invalid JSON, old formats and malformed saved collections keep recovery data and a usable session', async () => {
+  for (const raw of ['{not valid JSON', JSON.stringify({ version: 1, state: {} }), JSON.stringify({ version: 2, state: { ...harness().get(), outputs: [null] } })]) {
+    const { h, data } = await restoreState(raw);
+    assert.equal(h.get().hydrated, true);
+    assert.equal(h.get().project.id, '');
+    assert.equal(data.get('projectpilot-recovery'), raw);
+    h.get().startDemoProject(); assert(h.get().requirements.length > 0);
+  }
+});
+
+test('delayed manager timeout preserves draft through restore and permits a successful retry', async () => {
+  const { h } = await restoreState(harness().get(), 'live');
+  const oldFetch = global.fetch, oldTimeout = AbortSignal.timeout, key = process.env.OPENAI_API_KEY;
+  process.env.OPENAI_API_KEY = 'test-only';
+  AbortSignal.timeout = () => oldTimeout(30);
+  const brief = 'A student study tracker with saved sessions';
+  let delayed = true;
+  global.fetch = async (url, options) => {
+    if (url === '/api/manager') return h.route.POST(new Request('http://localhost/api/manager', options));
+    if (!delayed) return modelResponse({ items: [{ prompt: 'What study sessions should be stored?', why: 'Define the record format' }] });
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => resolve(modelResponse({ items: [] })), 300);
+      options.signal.addEventListener('abort', () => { clearTimeout(timer); reject(new DOMException('Delayed request aborted', 'TimeoutError')); }, { once: true });
+    });
+  };
+  const idle = async () => { for (let i = 0; i < 50 && h.get().busy; i++) await new Promise((resolve) => setTimeout(resolve, 10)); assert.equal(h.get().busy, false); };
+  try {
+    h.get().startProject(brief, 'Students'); await idle();
+    assert.match(h.get().workflowNotice, /timed out/);
+    assert.equal(h.get().draftBrief.idea, brief);
+    const restored = await restoreState(h.get(), 'live');
+    assert.equal(restored.h.get().draftBrief.idea, brief);
+    delayed = false;
+    h.get().startProject(brief, 'Students'); await idle();
+    assert.equal(h.get().currentStep, 'questions');
+    assert.equal(h.get().questions.length, 1);
+  } finally { global.fetch = oldFetch; AbortSignal.timeout = oldTimeout; if (key === undefined) delete process.env.OPENAI_API_KEY; else process.env.OPENAI_API_KEY = key; }
+});
+
+test('export retains edited text, dependency order, approval and rewritten feedback including special characters', async () => {
+  const h = harness(); planned(h);
+  const special = 'Store *course* and [minutes] with <validation> and `stable IDs`';
+  h.get().editRequirement(h.get().requirements[0].id, special);
+  h.get().toggleRequirement(h.get().requirements[0].id, 'approved'); h.get().approveRequirements();
+  const first = h.get().tasks[0];
+  assert.equal(h.get().editTask(first.id, { ...first, title: 'Store [sessions] safely', description: 'Use stable IDs and validate positive minutes' }), null);
+  await h.get().approveTaskPlan(); approveAll(h);
+  const output = h.get().outputs[0]; h.get().requestRevision(output.id);
+  await h.get().submitFeedback('Add empty state and invalid minutes checks'); approveAll(h);
+  h.get().approveOutputs(); h.get().skipFeedback();
+  const md = h.exporter.planMarkdown(h.get());
+  assert(md.includes(special));
+  assert(md.includes('Store [sessions] safely'));
+  assert(md.includes('Human approval: Approved'));
+  assert(md.includes('Add empty state and invalid minutes checks (applied;'));
+  assert(!md.includes('Revision requested:'));
+  let previous = -1;
+  for (const task of h.get().tasks) { const at = md.indexOf(`Task ID: ${task.id}`); assert(at > previous); for (const dep of task.dependencies) assert(md.indexOf(`Task ID: ${dep}`) < at); previous = at; }
+  assert(md.includes(h.get().outputs.find((o) => o.taskId === output.taskId).summary));
 });
