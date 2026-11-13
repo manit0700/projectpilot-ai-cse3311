@@ -44,7 +44,8 @@ export const viewport: Viewport = {
   colorScheme: "light dark",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+// Explicit props type: Next's generated LayoutProps helper only exists after a build, not on a clean CI checkout.
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html
       lang="en"
