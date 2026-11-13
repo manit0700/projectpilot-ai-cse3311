@@ -2,123 +2,72 @@
 
 import { StudioHandoffButton } from "@/components/studio-handoff";
 import { ApprovalBar } from "@/components/shell";
+import { shortProjectTitle } from "@/components/task-handoff";
 import { AGENT_LABELS } from "@/lib/agents";
 import { useProjectStore } from "@/lib/store";
 import { TaskEditor } from "@/components/task-editor";
 import { enoughDetail } from "@/lib/input-rules";
-import { requirementsReady, taskLabel } from "@/lib/workflow";
-import { useState } from "react";
+import { taskLabel } from "@/lib/workflow";
+import { TaskAddForm } from "@/components/task-editor";
+import { useStoreExt } from "@/components/store-ext";
+import { useEffect, useRef, useState } from "react";
 
-const DEMO_IDEA =
-  "An AI project workspace where a Manager Agent breaks a small software project into tasks, assigns frontend, backend, database, testing, and documentation agents, reviews their outputs, and asks the student for approval before major changes.";
-
-const DEMO_TARGET_USER =
-  "CSE students building small class projects with one shared workspace";
-
-export function IdeaScreen() {
-  const { startProject, startDemoProject, project, goTo, busy, draftBrief } = useProjectStore();
-  const [idea, setIdea] = useState(draftBrief?.idea || "");
-  const [targetUser, setTargetUser] = useState(draftBrief?.targetUser || "CSE students / hackathon teammates");
-
-  const loadDemoText = () => {
-    setIdea(DEMO_IDEA);
-    setTargetUser(DEMO_TARGET_USER);
-  };
-
-  if (project.id) return (
-    <div className="max-w-2xl space-y-4">
-      <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Project idea</h1>
-      <p className="text-lg">{project.description}</p>
-      <p>Target user: {project.targetUser}</p>
-      <p className="text-sm text-slate-600">This is the original brief. Viewing it does not change your work. Use Requirements to refine the scope.</p>
-      <ApprovalBar approveLabel="View clarifying answers" onApprove={() => goTo("questions")} />
-    </div>
-  );
-
-  return (
-    <div className="max-w-2xl">
-      <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl text-slate-900">
-        New project
-      </h1>
-      <p className="mt-3 text-base leading-relaxed text-slate-600">
-        Describe a class project, hackathon app, or portfolio idea. The Manager
-        Agent will clarify scope, draft requirements, and assign specialist agents.
-        Best fits include a study planner, local task tracker, or club signup prototype.
-        Specialists generate deliverables for you to review, integrate, and test.
-      </p>
-
-      <label className="mt-6 block text-sm font-medium text-slate-800">
-        Project idea
-        <textarea
-          value={idea}
-          onChange={(e) => setIdea(e.target.value)}
-          minLength={12}
-          rows={5}
-          placeholder="e.g. A campus study-group matcher with availability calendars and course filters"
-          className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none ring-teal-700/30 focus:ring-2"
-        />
-      </label>
-
-      <label className="mt-4 block text-sm font-medium text-slate-800">
-        Target user
-        <input
-          minLength={3}
-          value={targetUser}
-          onChange={(e) => setTargetUser(e.target.value)}
-          className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none ring-teal-700/30 focus:ring-2"
-        />
-      </label>
-
-      <div className="mt-4 rounded-xl border border-teal-200 bg-teal-50 p-4">
-        <div className="text-sm font-semibold text-teal-950">Demo sample · prepared responses</div>
-        <p className="mt-1 text-sm leading-5 text-teal-900">
-          This optional sample uses prepared responses. For real agents, select Live API
-          and enter your own project idea above.
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={loadDemoText}
-            className="rounded-xl border border-teal-700 px-3 py-1.5 text-sm font-semibold text-teal-900 hover:bg-white"
-          >
-            Load sample text
-          </button>
-          <button
-            type="button"
-            onClick={startDemoProject}
-            className="rounded bg-teal-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-teal-800"
-          >
-            Run guided workflow
-          </button>
-        </div>
-      </div>
-
-      <ApprovalBar
-        approveLabel="Start clarifying questions"
-        disabled={busy || idea.trim().length < 12 || targetUser.trim().length < 3}
-        onApprove={() => startProject(idea, targetUser)}
-        hint={idea.trim().length < 12 ? "Enter a project idea of at least 12 characters to continue, or run the guided workflow." : "Human oversight starts here: nothing is finalized without your approval."}
-      />
-    </div>
-  );
-}
+export { IdeaScreen } from "@/components/idea-screen";
+export { RequirementsScreen } from "@/components/requirements-screen";
 
 export function QuestionsScreen() {
-  const { questions, updateAnswer, submitAnswers, project, requirements, busy } = useProjectStore();
+  const { questions, updateAnswer, suggestAnswers, submitAnswers, project, requirements, busy } = useProjectStore();
+  const drafted = questions.filter((q) => q.suggested).length;
+  // Drafting is automatic: when this screen opens with every answer blank (a restored save, or an earlier
+  // automatic attempt that failed once), ask the manager once per project. A failure shows a retry button.
+  const attempted = useRef<string | null>(null);
+  // The failure copy is only honest when an attempt really happened and left every answer blank.
+  const [attemptedFor, setAttemptedFor] = useState<string | null>(null);
+  const allBlank = questions.length > 0 && questions.every((q) => !q.answer.trim());
+  const anyBlank = questions.some((q) => !q.answer.trim());
+  const failed = allBlank && !busy && attemptedFor === project.id;
+  const draftAgain = () => { setAttemptedFor(project.id); suggestAnswers(); };
+  useEffect(() => {
+    if (!allBlank || requirements.length || busy || !project.id || attempted.current === project.id) return;
+    attempted.current = project.id;
+    suggestAnswers();
+    // Deliberately not cleared on cleanup: the effect re-runs as soon as the request flips `busy`.
+    window.setTimeout(() => setAttemptedFor(project.id), 0);
+  }, [allBlank, requirements.length, busy, project.id, suggestAnswers]);
 
   return (
     <div className="max-w-2xl">
       <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl text-slate-900">Clarifying questions</h1>
       <p className="mt-3 text-base leading-relaxed text-slate-600">
-        Manager is filling gaps for <span className="font-medium">{project.title}</span>.
+        Manager is filling gaps for <span className="font-medium">{shortProjectTitle(project)}</span>.
         {requirements.length ? " Original answers are read-only; edit requirements to refine the plan without replacing your work." : " Give at least 12 characters per answer, including concrete constraints. Short answers block generation."}
       </p>
+
+      {!requirements.length && (
+        <div className="mt-5 flex flex-wrap items-center gap-3 rounded-xl border border-teal-200 bg-teal-50 px-4 py-3" role="status">
+          <p className="min-w-0 flex-1 text-sm text-teal-950">
+            {drafted > 0
+              ? `The manager drafted ${drafted} answer${drafted === 1 ? "" : "s"} from your idea and target user. Read them, edit anything that is wrong, then continue.`
+              : busy ? "The manager is drafting answers from your idea and target user…"
+              : failed ? "The manager could not draft answers. Try again, or write your own."
+              : anyBlank ? "Some answers are still blank. Write them yourself or ask the manager to draft them."
+              : "Answers are filled in. Read them, edit anything that is wrong, then continue."}
+          </p>
+          {!busy && (drafted > 0 || anyBlank) && (
+            <button type="button" onClick={draftAgain} aria-describedby="suggest-help" className={drafted > 0 ? "inline-flex min-h-11 items-center text-sm font-medium text-teal-900 underline underline-offset-2 hover:text-teal-700" : "min-h-11 rounded-xl border border-teal-700 bg-white px-4 py-2 text-sm font-medium text-teal-900 hover:bg-teal-100"}>
+              {drafted > 0 ? "Redraft unedited answers" : failed ? "Draft answers again" : "Draft answers"}
+            </button>
+          )}
+          <p id="suggest-help" className="basis-full text-xs text-teal-900/80">Answers you typed or edited are never overwritten.</p>
+        </div>
+      )}
 
       <ul className="mt-6 space-y-4">
         {questions.map((q, i) => (
           <li key={q.id} className="rounded-xl border border-slate-200 bg-white p-4">
             <div className="text-sm font-medium text-slate-900">
               {i + 1}. {q.prompt}
+              {q.suggested && <span className="ml-2 rounded-full bg-teal-100 px-2 py-0.5 text-xs font-medium text-teal-900">AI draft · edit me</span>}
             </div>
             <p className="mt-1 text-sm text-slate-500">{q.why}</p>
             <textarea
@@ -136,74 +85,26 @@ export function QuestionsScreen() {
       </ul>
 
       <ApprovalBar
-        approveLabel={requirements.length ? "Return to requirements" : "Generate requirements"}
+        approveLabel={requirements.length ? "Return to requirements" : "Continue to requirements"}
         disabled={busy || (!requirements.length && questions.some((q) => !enoughDetail(q.answer)))}
         onApprove={submitAnswers}
-        hint={requirements.length ? "Your requirements and later work are preserved." : "Answer every question before generating requirements."}
+        hint={requirements.length ? "Your requirements and later work are preserved." : "Review the drafted answers, edit what is wrong, then continue. Every answer needs 12+ characters."}
       />
-    </div>
-  );
-}
-
-export function RequirementsScreen() {
-  const store = useProjectStore();
-  const { requirements, toggleRequirement, approveRequirements, editRequirement, busy, tasks } = store;
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState("");
-  const ready = requirementsReady(store);
-  const counts = [
-    ["Approved", requirements.filter((r) => r.approvalStatus === "approved").length],
-    ["Pending", requirements.filter((r) => r.approvalStatus === "pending").length],
-    ["Needs revision", requirements.filter((r) => r.approvalStatus === "rejected").length],
-  ];
-
-  return (
-    <div className="max-w-3xl">
-      <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl text-slate-900">Requirements summary</h1>
-      <p className="mt-3 text-base leading-relaxed text-slate-600">Review each requirement. Edited requirements always need approval again.</p>
-      <div aria-live="polite" className="mt-5 flex flex-wrap gap-3">
-        {counts.map(([label, count]) => <span key={label} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 font-medium">{label}: {count}</span>)}
-      </div>
-      <ul className="mt-6 space-y-3">
-        {requirements.map((r) => (
-          <li key={r.id} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
-            <div className="flex flex-wrap gap-2 text-sm font-semibold">
-              <span className="rounded bg-slate-100 px-2 py-1 uppercase">{r.priority}</span>
-              <span className={`rounded px-2 py-1 ${r.approvalStatus === "approved" ? "bg-teal-50 text-teal-800" : "bg-amber-50 text-amber-900"}`}>{r.approvalStatus === "rejected" ? "Needs revision" : r.approvalStatus === "approved" ? "Approved" : "Pending review"}</span>
-            </div>
-            {editingId === r.id ? (
-              <form onSubmit={(event) => { event.preventDefault(); if (enoughDetail(draft)) { editRequirement(r.id, draft); setEditingId(null); } }}>
-                <label className="block font-medium">Requirement text<textarea autoFocus required minLength={12} value={draft} onChange={(e) => setDraft(e.target.value)} rows={4} className="mt-2 w-full rounded-xl border border-slate-300 p-3" /></label>
-                {tasks.length > 0 && <p className="my-3 text-sm text-amber-900">Saving a change reopens the task plan and refreshes its shared-context outputs after approval. Existing tasks and history are preserved.</p>}
-                {!enoughDetail(draft) && <p className="mt-2 text-sm text-amber-900">Enter at least 12 characters of requirement detail.</p>}
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button disabled={!enoughDetail(draft)} className="rounded-xl bg-teal-700 px-4 py-2 text-white disabled:opacity-50">Save requirement</button>
-                  <button type="button" onClick={() => setEditingId(null)} className="rounded-xl border border-slate-300 px-4 py-2">Cancel</button>
-                </div>
-              </form>
-            ) : <>
-              <p className="text-base leading-relaxed text-slate-800">{r.text}</p>
-              <div className="flex flex-wrap gap-2">
-                <button type="button" disabled={busy || !!editingId} onClick={() => toggleRequirement(r.id, "approved")} className={`rounded-xl border px-4 py-2 font-semibold ${r.approvalStatus === "approved" ? "border-teal-700 bg-teal-700 text-white" : "border-slate-300 bg-white text-slate-700"}`}>Approve</button>
-                <button type="button" disabled={busy || !!editingId} onClick={() => toggleRequirement(r.id, "rejected")} className={`rounded-xl border px-4 py-2 font-semibold ${r.approvalStatus === "rejected" ? "border-teal-700 bg-teal-700 text-white" : "border-slate-300 bg-white text-slate-700"}`}>Needs revision</button>
-                <button type="button" disabled={busy || !!editingId} onClick={() => { setDraft(r.text); setEditingId(r.id); }} className="rounded-xl border border-slate-300 px-4 py-2">Edit</button>
-              </div>
-            </>}
-          </li>
-        ))}
-      </ul>
-      <ApprovalBar approveLabel={tasks.length ? "Continue to task plan" : "Approve requirements → build tasks"}
-        disabled={busy || !ready || !!editingId} onApprove={approveRequirements}
-        hint={editingId ? "Save or cancel your edit before continuing." : !ready ? "Approve or resolve all requirements before generating the task plan." : "All requirements approved. Continue to review the task plan; agents will not run yet."} />
     </div>
   );
 }
 
 export function TasksScreen() {
   const { tasks, approveTaskPlan, busy, project, planApproved, goTo } = useProjectStore();
+  const { addTask } = useStoreExt();
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
   const editingTask = tasks.find((t) => t.id === editingId);
-  const editButton = (id: string) => !planApproved && <button type="button" disabled={busy || !!editingId} onClick={() => setEditingId(id)} className="mt-3 rounded-xl border border-teal-700 px-3 py-2 text-sm font-semibold text-teal-800 disabled:opacity-50">Edit task</button>;
+  const editLocked = busy || !!editingId || adding;
+  const editButton = (id: string) => !planApproved && <>
+    <button type="button" disabled={editLocked} aria-label={`Edit task ${tasks.find((t) => t.id === id)?.order}: ${tasks.find((t) => t.id === id)?.title}`} aria-describedby={editLocked ? `task-edit-help-${id}` : undefined} onClick={() => setEditingId(id)} className="mt-3 min-h-11 rounded-xl border border-teal-700 px-4 py-2 text-sm font-semibold text-teal-800 disabled:cursor-not-allowed disabled:opacity-50">Edit task</button>
+    {editLocked && <p id={`task-edit-help-${id}`} className="mt-1 text-xs text-slate-600">{busy ? "Editing is paused while agents run." : editingId === id ? "This task is open in the editor above." : "Save or cancel the open task edit first."}</p>}
+  </>;
 
   return (
     <div className="max-w-4xl">
@@ -213,10 +114,14 @@ export function TasksScreen() {
       </p>
 
       {planApproved && <p className="mt-4 rounded-xl bg-teal-50 p-3 text-sm text-teal-900">This plan has been approved. Viewing it does not rerun agents. To change shared scope, edit a requirement and review the reopened plan.</p>}
+      {typeof addTask === "function" && !planApproved && !adding && !editingId && (
+        <button type="button" disabled={busy} onClick={() => setAdding(true)} className="mt-4 min-h-11 rounded-xl border border-teal-700 px-4 py-2 text-sm font-semibold text-teal-800 disabled:cursor-not-allowed disabled:opacity-50">Add task</button>
+      )}
+      {adding && <TaskAddForm onClose={() => setAdding(false)} />}
       {editingTask && <TaskEditor key={editingTask.id} task={editingTask} onClose={() => setEditingId(null)} />}
       {project.approvedSummary && (
         <details className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <summary className="cursor-pointer font-semibold text-slate-800">Approved project brief</summary>
+          <summary className="min-h-11 cursor-pointer py-2.5 font-semibold text-slate-800">Approved project brief</summary>
           <pre className="mt-3 whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-slate-600">{project.approvedSummary}</pre>
         </details>
       )}
@@ -280,12 +185,12 @@ export function TasksScreen() {
         </table>
       </div>
 
-      <StudioHandoffButton disabled={busy || !!editingId} />
+      <StudioHandoffButton disabled={busy || !!editingId || adding} />
       <ApprovalBar
         approveLabel={busy ? "Agents running…" : planApproved ? "Return to agent board" : "Approve plan & run agents"}
-        disabled={busy || !!editingId}
+        disabled={busy || !!editingId || adding}
         onApprove={() => planApproved ? goTo("board") : void approveTaskPlan()}
-        hint={editingId ? "Save or cancel your task edit before approving the plan." : "Approving runs only tasks that need work. Existing successful, unaffected outputs are preserved."}
+        hint={editingId || adding ? "Save or cancel your task edit before approving the plan." : "Approving runs only tasks that need work. Existing successful, unaffected outputs are preserved."}
       />
     </div>
   );

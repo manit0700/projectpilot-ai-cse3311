@@ -1,5 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Source_Sans_3 } from "next/font/google";
+import { siteUrl } from "./site-url";
 import "./globals.css";
 
 const sourceSans = Source_Sans_3({
@@ -13,10 +14,34 @@ const plexMono = IBM_Plex_Mono({
   subsets: ["latin"],
 });
 
+const DESCRIPTION =
+  "Student-focused AI project manager for class projects, hackathons, and portfolio apps. A Manager Agent clarifies scope, drafts requirements, assigns specialists, and waits for your approval.";
+
 export const metadata: Metadata = {
-  title: "ProjectPilot AI",
-  description:
-    "Student-focused AI project manager for class projects, hackathons, and portfolio apps.",
+  metadataBase: siteUrl(),
+  title: { default: "ProjectPilot AI", template: "%s · ProjectPilot AI" },
+  description: DESCRIPTION,
+  applicationName: "ProjectPilot AI",
+  openGraph: {
+    type: "website",
+    siteName: "ProjectPilot AI",
+    title: "ProjectPilot AI",
+    description: DESCRIPTION,
+    url: "/",
+  },
+  twitter: {
+    card: "summary",
+    title: "ProjectPilot AI",
+    description: DESCRIPTION,
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#0f766e" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b1117" },
+  ],
+  colorScheme: "light dark",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

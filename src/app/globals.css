@@ -4,6 +4,68 @@
   --pp-bg: #f4f7f8;
   --background: #f4f7f8;
   --foreground: #0f172a;
+  --pp-surface: #ffffff;
+  --pp-focus: #0f766e;
+  color-scheme: light;
+}
+
+/* Restrained dark palette. Tailwind utilities read these theme variables, so remapping the
+   slate scale and the tinted ends of the teal/amber/rose/emerald scales re-themes every screen
+   (including Website Studio) without touching component classes. teal-600..800 stay as the
+   brand fill behind white text; text-only uses of those shades are lifted below. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --pp-bg: #0b1117;
+    --background: #0b1117;
+    --foreground: #e6edf3;
+    --pp-surface: #111a22;
+    --pp-focus: #5eead4;
+    color-scheme: dark;
+
+    --color-slate-50: #16212b;
+    --color-slate-100: #1c2935;
+    --color-slate-200: #2a3947;
+    --color-slate-300: #3d4f60;
+    --color-slate-400: #8a9bb0;
+    --color-slate-500: #9fb0c3;
+    --color-slate-600: #b0bfd0;
+    --color-slate-700: #c8d3df;
+    --color-slate-800: #dce4ec;
+    --color-slate-900: #eef2f6;
+    --color-slate-950: #f8fafc;
+
+    --color-teal-50: #0f2a2b;
+    --color-teal-100: #133b3b;
+    --color-teal-200: #1f5a57;
+    --color-teal-300: #2f8077;
+    --color-teal-900: #bff1e8;
+    --color-teal-950: #d9f7f2;
+
+    --color-amber-50: #2a2210;
+    --color-amber-100: #3a2e12;
+    --color-amber-200: #5a4817;
+    --color-amber-300: #7c6320;
+    --color-amber-800: #d8a53c;
+    --color-amber-900: #fbd98b;
+    --color-amber-950: #fdebc0;
+
+    --color-rose-50: #2c151a;
+    --color-rose-100: #3c1a21;
+    --color-rose-200: #5c2a33;
+    --color-rose-300: #84404c;
+    --color-rose-800: #fda4af;
+    --color-rose-900: #fecdd3;
+
+    --color-emerald-100: #12332a;
+    --color-emerald-800: #7ee2b5;
+  }
+
+  .bg-white,
+  .hover\:bg-white:hover { background-color: var(--pp-surface); }
+  .text-teal-700,
+  .text-teal-800 { color: #6ee7d8; }
+  input:not([type=checkbox], [type=radio], [type=range]), textarea, select { background-color: var(--pp-surface); color: var(--foreground); }
+  input::placeholder, textarea::placeholder { color: #8a9bb0; }
 }
 
 @theme inline {
@@ -27,7 +89,7 @@ button {
 
 /* Shared focus and wrapping rules for the project workflow. */
 :where(button, a, input, textarea, select, [tabindex]):focus-visible {
-  outline: 3px solid #0f766e;
+  outline: 3px solid var(--pp-focus);
   outline-offset: 3px;
 }
 
@@ -43,80 +105,7 @@ button:disabled {
   cursor: not-allowed;
 }
 
-/* Website Studio consumes one semantic theme across all workspace controls. */
-:root {
-  --studio-surface: #ffffff;
-  --studio-text: var(--foreground);
-  --studio-muted: #475569;
-  --studio-line: #cbd5e1;
-  --studio-action: #0f766e;
-  --studio-on-action: #ffffff;
-  --studio-error: #9f1239;
-  --studio-error-bg: #fff1f2;
-  --studio-space: 1rem;
-  --studio-gap: 1.5rem;
-  --studio-radius: .75rem;
-  --studio-border: 1px;
-  --studio-control: 2.75rem;
-  --studio-page: 100rem;
-  --studio-sidebar: 23rem;
-  --studio-title: clamp(2rem, 4vw, 3.5rem);
-  --studio-heading: 1.15rem;
-  --studio-small: .875rem;
-  --studio-tiny: .75rem;
-  --studio-code: .875rem;
-  --studio-preview-height: 34rem;
-  --studio-editor-height: 22rem;
-  --studio-log-height: 28rem;
-  --studio-phone: 24rem;
+/* <details> markers stay clickable targets across the planning app and Website Studio. */
+summary {
+  cursor: pointer;
 }
-.studio { color: var(--studio-text); min-height: 100vh; background: var(--background); }
-.studio-header { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:var(--studio-space); padding:var(--studio-gap); border-bottom:var(--studio-border) solid var(--studio-line); background:var(--studio-surface); }
-.studio-header a { font-weight:700; }
-.studio-header span:last-child { font-size:var(--studio-small); color:var(--studio-muted); }
-.studio-badge,.studio-eyebrow { font-size:var(--studio-tiny); font-weight:700; letter-spacing:.1em; color:var(--studio-action); }
-.studio-main { max-width:var(--studio-page); margin:auto; padding:var(--studio-gap); }
-.studio-title { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:var(--studio-space); margin-bottom:var(--studio-gap); }
-.studio h1 { font-size:var(--studio-title); font-weight:650; letter-spacing:-.04em; line-height:1.1; margin-block:var(--studio-space); }
-.studio h2 { font-size:var(--studio-heading); font-weight:650; }
-.studio-grid { display:grid; gap:var(--studio-gap); align-items:start; }
-.studio-panel { min-width:0; background:var(--studio-surface); border:var(--studio-border) solid var(--studio-line); border-radius:var(--studio-radius); padding:var(--studio-gap); }
-.studio-controls { display:grid; gap:var(--studio-space); }
-.studio label { display:grid; gap:calc(var(--studio-space)/2); font-size:var(--studio-small); font-weight:600; }
-.studio textarea,.studio select,.studio input { width:100%; min-width:0; border:var(--studio-border) solid var(--studio-line); border-radius:var(--studio-radius); padding:calc(var(--studio-space)*.75); background:var(--studio-surface); color:var(--studio-text); font:inherit; }
-.studio textarea { resize:vertical; line-height:1.5; font-weight:400; }
-.studio-button { display:inline-flex; align-items:center; justify-content:center; gap:calc(var(--studio-space)/2); min-height:var(--studio-control); padding:calc(var(--studio-space)*.6) var(--studio-space); border:var(--studio-border) solid var(--studio-action); border-radius:var(--studio-radius); background:var(--studio-action); color:var(--studio-on-action); font-size:var(--studio-small); font-weight:600; }
-.studio-button:hover { filter:brightness(.93); }
-.studio-button:active { filter:brightness(.86); }
-.studio-button:disabled { opacity:.45; }
-.studio-secondary { color:var(--studio-text); background:var(--studio-surface); border-color:var(--studio-line); }
-.studio-button[aria-pressed=true] { border-color:var(--studio-action); outline:var(--studio-border) solid var(--studio-action); }
-.studio-muted { font-size:var(--studio-small); font-weight:400; color:var(--studio-muted); line-height:1.5; }
-.studio-error { border:var(--studio-border) solid var(--studio-error); color:var(--studio-error); background:var(--studio-error-bg); padding:var(--studio-space); border-radius:var(--studio-radius); margin-bottom:var(--studio-space); }
-.studio-toolbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:var(--studio-space); margin-block:var(--studio-space); }
-.studio-toolbar>div,.studio-tabs { display:flex; flex-wrap:wrap; gap:calc(var(--studio-space)/2); }
-.studio-preview { width:100%; margin:auto; background:var(--studio-surface); border:var(--studio-border) solid var(--studio-line); border-radius:var(--studio-radius); overflow:hidden; }
-.studio-preview iframe { display:block; width:100%; height:var(--studio-preview-height); border:0; background:var(--studio-surface); }
-.studio-mobile { max-width:var(--studio-phone); }
-.studio-workspace>.studio-muted { margin-block:var(--studio-space); }
-.studio-code-label { margin-top:var(--studio-space); }
-.studio textarea.studio-code { min-height:var(--studio-editor-height); font-family:var(--font-mono); font-size:var(--studio-code); tab-size:2; }
-.studio-conversation { max-height:var(--studio-log-height); overflow:auto; }
-.studio-conversation article { border-left:var(--studio-border) solid var(--studio-action); padding:var(--studio-space); margin-bottom:var(--studio-space); }
-.studio-conversation p { white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.6; font-size:var(--studio-small); margin-top:calc(var(--studio-space)/2); }
-.studio-conversation small { display:block; color:var(--studio-muted); font-size:var(--studio-tiny); }
-.studio summary { cursor:pointer; min-height:var(--studio-control); display:list-item; padding-block:calc(var(--studio-space)/2); }
-@media(min-width:64rem) { .studio-grid { grid-template-columns:var(--studio-sidebar) minmax(0,1fr); } }
-
-.studio-copy { display:grid; gap:var(--studio-space); margin-bottom:var(--studio-space); }
-.studio-flow { display:flex; flex-wrap:wrap; gap:var(--studio-space); margin-bottom:var(--studio-gap); font-size:var(--studio-small); }
-.studio-flow [aria-current] { font-weight:700; color:var(--studio-action); }
-.studio-incoming { display:grid; gap:var(--studio-space); margin-bottom:var(--studio-gap); }
-.studio-agents { display:grid; gap:var(--studio-space); margin-block:var(--studio-space); }
-.studio-agents article { padding:var(--studio-space); }
-.studio-agents [data-working=true] { border-color:var(--studio-action); outline:var(--studio-border) solid var(--studio-action); }
-.studio-agent-status { display:block; color:var(--studio-action); margin-block:calc(var(--studio-space)/2); font-size:var(--studio-small); }
-.studio-agents p { font-size:var(--studio-small); color:var(--studio-muted); line-height:1.5; }
-.studio-live { margin-bottom:var(--studio-space); }
-.studio-live pre { max-height:var(--studio-editor-height); overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; font:var(--studio-code)/1.6 var(--font-mono); }
-@media(min-width:48rem) { .studio-agents { grid-template-columns:repeat(3,minmax(0,1fr)); } }

@@ -1,14 +1,16 @@
 "use client";
 
-import { StudioHandoffButton } from "@/components/studio-handoff";
 import { ApprovalBar } from "@/components/shell";
+import { TaskHandoff, handoffLogLine } from "@/components/task-handoff";
 import { AGENT_LABELS } from "@/lib/agents";
 import { useProjectStore } from "@/lib/store";
 import type { AgentRole, TaskState } from "@/lib/types";
 import { enoughDetail } from "@/lib/input-rules";
 import { hasConflict, outputsReady, taskLabel } from "@/lib/workflow";
-import { downloadPlan } from "@/lib/plan-export";
-import { useState } from "react";
+import { useId, useState } from "react";
+import { useStoreExt } from "@/components/store-ext";
+
+export { FinalScreen } from "@/components/screen-final";
 
 const COLUMNS: { state: TaskState; label: string }[] = [
   { state: "blocked", label: "Blocked" },
@@ -29,11 +31,16 @@ const ROLE_COLOR: Partial<Record<AgentRole, string>> = {
   review: "border-l-rose-500",
 };
 
+const TERMINAL: TaskState[] = ["completed", "failed"];
+
 export function BoardScreen() {
-  const { tasks, agents, outputs, busy, busyLabel, goTo, retryTask, skipTask, skippedTaskIds, approveTaskPlan } = useProjectStore();
+  const { tasks, agents, outputs, feedbackItems, busy, busyLabel, goTo, retryTask, skipTask, skippedTaskIds, approveTaskPlan } = useProjectStore();
+  const { stopRun } = useStoreExt();
 
   const [skipId, setSkipId] = useState<string | null>(null);
   const ready = tasks.some((t) => ["queued", "blocked"].includes(t.state) && t.dependencies.every((id) => tasks.find((d) => d.id === id)?.state === "completed"));
+  const allTerminal = tasks.length > 0 && tasks.every((t) => TERMINAL.includes(t.state));
+  const failedCount = tasks.filter((t) => t.state === "failed").length;
 
   return (
     <div>
@@ -44,16 +51,18 @@ export function BoardScreen() {
           : "Specialists work from shared context. Failed timeouts retry once."}
       </p>
 
-      <p className="mt-3 text-sm text-slate-600">Dependencies must complete before a task can run. Failed tasks can be retried individually.</p>
+      {busy && typeof stopRun === "function" && <button type="button" onClick={stopRun} className="mt-3 min-h-11 rounded-xl border border-rose-400 px-4 py-2 font-semibold text-rose-800 hover:bg-rose-50">Stop run</button>}
+      <p className="mt-3 text-sm text-slate-600">Dependencies must complete before a task can run. Failed tasks can be retried individually. Open a card&apos;s Handoff to see exactly what each agent received.</p>
       {skipId && <div role="region" aria-labelledby="skip-title" className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4">
         <h2 id="skip-title" className="font-semibold">Skip {tasks.find((t) => t.id === skipId)?.title} for now?</h2>
         <p className="mt-2">It stays failed, its dependents remain blocked, and the final plan cannot be completed until it succeeds.</p>
         <div className="mt-3 flex flex-wrap gap-3">
-          <button type="button" disabled={busy} className="rounded-xl border border-amber-800 px-4 py-2" onClick={() => { skipTask(skipId); setSkipId(null); }}>Confirm skip</button>
+          <button type="button" disabled={busy} aria-describedby={busy ? "skip-busy-help" : undefined} className="rounded-xl border border-amber-800 px-4 py-2 disabled:opacity-50" onClick={() => { skipTask(skipId); setSkipId(null); }}>Confirm skip</button>
           <button type="button" autoFocus className="rounded-xl border border-slate-300 px-4 py-2" onClick={() => setSkipId(null)}>Cancel</button>
         </div>
+        {busy && <p id="skip-busy-help" className="mt-2 text-sm text-amber-900">Skipping is paused while agents are running.</p>}
       </div>}
-      {!busy && ready && <button type="button" className="mt-4 rounded-xl bg-teal-700 px-4 py-3 text-white" onClick={() => void approveTaskPlan()}>Run remaining ready tasks</button>}
+      {!busy && ready && <button type="button" className="mt-4 min-h-11 rounded-xl bg-teal-700 px-4 py-3 font-semibold text-white hover:bg-teal-800" onClick={() => void approveTaskPlan()}>Run remaining ready tasks</button>}
       <div className="mt-4 flex flex-wrap gap-2">
         {agents
           .filter((a) => a.role !== "manager")
@@ -84,6 +93,7 @@ export function BoardScreen() {
                 {colTasks.map((t) => {
                   const out = outputs.find((o) => o.taskId === t.id);
                   const waitingDependencies = t.dependencies.filter((id) => tasks.find((d) => d.id === id)?.state !== "completed");
+                  const retryBlocked = waitingDependencies.length > 0;
                   return (
                     <li
                       key={t.id}
@@ -95,6 +105,7 @@ export function BoardScreen() {
                       <div className="mt-0.5 text-sm text-slate-500">
                         {AGENT_LABELS[t.ownerAgent]}
                       </div>
+                      {t.state === "in_progress" && <p role="status" className="mt-2 rounded-lg bg-teal-50 px-2 py-1.5 font-mono text-xs leading-relaxed text-teal-900">{handoffLogLine(t, tasks)}</p>}
                       {t.dependencies.length > 0 && <div className="mt-3 text-sm text-slate-600">
                         <p className="font-semibold">{waitingDependencies.length ? "Blocked by" : "Dependencies complete"}</p>
                         <ul>{(waitingDependencies.length ? waitingDependencies : t.dependencies).map((id) => {
@@ -104,9 +115,9 @@ export function BoardScreen() {
                       </div>}
                       {t.state === "failed" && <div className="mt-3 space-y-2">
                         <p className="text-sm text-rose-800">{skippedTaskIds.includes(t.id) ? "Skipped for now — not completed." : "Execution failed. Unrelated successful work is preserved."}</p>
-                        <button type="button" disabled={busy || t.dependencies.some((id) => tasks.find((d) => d.id === id)?.state !== "completed")} onClick={() => void retryTask(t.id)} className="rounded-xl bg-teal-700 px-3 py-2 text-white disabled:opacity-50">Retry task</button>
-                        {!skippedTaskIds.includes(t.id) && <button type="button" disabled={busy} onClick={() => setSkipId(t.id)} className="ml-2 rounded-xl border border-slate-300 px-3 py-2">Skip for now</button>}
-                        {t.dependencies.some((id) => tasks.find((d) => d.id === id)?.state !== "completed") && <p className="text-sm">Complete the listed dependencies before retrying.</p>}
+                        <button type="button" disabled={busy || retryBlocked} aria-label={`Retry task ${t.order}: ${t.title}`} aria-describedby={busy || retryBlocked ? `retry-help-${t.id}` : undefined} onClick={() => void retryTask(t.id)} className="min-h-11 rounded-xl bg-teal-700 px-3 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50">Retry task</button>
+                        {!skippedTaskIds.includes(t.id) && <button type="button" disabled={busy} aria-label={`Skip task ${t.order}: ${t.title} for now`} aria-describedby={busy ? `retry-help-${t.id}` : undefined} onClick={() => setSkipId(t.id)} className="ml-2 min-h-11 rounded-xl border border-slate-300 px-3 py-2 disabled:opacity-50">Skip for now</button>}
+                        {(busy || retryBlocked) && <p id={`retry-help-${t.id}`} className="text-sm text-slate-600">{busy ? "Available once the current agent run finishes." : "Complete the listed dependencies before retrying."}</p>}
                       </div>}
                       {out && (
                         <div className="mt-2 text-sm text-slate-600">
@@ -114,6 +125,7 @@ export function BoardScreen() {
                           {out.retryCount > 0 && " · retried"}
                         </div>
                       )}
+                      <TaskHandoff task={t} tasks={tasks} outputs={outputs} feedbackItems={feedbackItems} />
                     </li>
                   );
                 })}
@@ -123,14 +135,29 @@ export function BoardScreen() {
         })}
       </div>
 
-      {!busy && outputs.length > 0 && (
+      {!busy && allTerminal && (
+        <ApprovalBar
+          approveLabel="Review collected outputs"
+          onApprove={() => goTo("review")}
+          hint={failedCount ? `${failedCount} task(s) failed or were skipped. You can review the collected outputs now; the final plan stays locked until every task succeeds.` : "Every task has finished. Review each output and approve it individually."}
+        />
+      )}
+      {!busy && !allTerminal && outputs.length > 0 && (
         <ApprovalBar
           approveLabel="Open review"
           onApprove={() => goTo("review")}
+          hint="Some tasks are still queued, blocked or awaiting revision. Review what has been collected so far, or run the remaining ready tasks above."
         />
       )}
     </div>
   );
+}
+
+function reviewVerdict(review: { result: string; missingItems: string[] } | undefined, conflict: boolean): string | null {
+  if (!review) return null;
+  if (conflict) return "Conflict blocks approval and export; request a revision.";
+  if (review.result === "flagged" || review.missingItems.length > 0) return "Missing items noted; you may approve or request a revision.";
+  return null;
 }
 
 export function ReviewScreen() {
@@ -138,11 +165,17 @@ export function ReviewScreen() {
     outputs,
     reviews,
     tasks,
-    approveOutputs, approveOutput, requestRevision, busy, staleTaskIds, goTo, managerMode, approveTaskPlan,
+    feedbackItems,
+    approveOutput, requestRevision, busy, staleTaskIds, goTo, managerMode, approveTaskPlan, approveOutputs,
   } = useProjectStore();
   const allApproved = tasks.length > 0 && tasks.every((t) => t.state === "completed" && outputs.some((o) => o.taskId === t.id && o.approved === "approved"));
   const hasRevision = outputs.some((o) => o.approved === "rejected");
   const incomplete = tasks.some((t) => t.state !== "completed") || staleTaskIds.length > 0 || outputs.some((o) => !reviews.some((r) => r.outputId === o.id));
+  const retryHelpId = useId();
+  // Bulk approval mirrors the per-output rules and is withheld entirely while any output has a conflict.
+  const anyConflict = outputs.some((o) => hasConflict({ reviews }, o.id));
+  const approvable = outputs.filter((o) => o.approved !== "approved" && !busy && reviews.some((r) => r.outputId === o.id)
+    && !staleTaskIds.includes(o.taskId) && tasks.find((t) => t.id === o.taskId)?.state === "completed");
 
   return (
     <div className="max-w-4xl">
@@ -156,15 +189,25 @@ export function ReviewScreen() {
         {reviews.length === outputs.length && outputs.length > 0
           ? `${managerMode === "live" ? "AI review" : "Demo checks"} complete · ${reviews.filter((r) => r.result !== "pass").length} output(s) need attention. Human approval is still required.`
           : "Review is incomplete. Finish tasks or retry review before approving outputs."}
-        {managerMode === "live" && tasks.every((t) => t.state === "completed") && <button type="button" disabled={busy} onClick={() => void approveTaskPlan()} className="ml-3 underline disabled:opacity-50">Retry review</button>}
+        {managerMode === "live" && tasks.every((t) => t.state === "completed") && <button type="button" disabled={busy} aria-describedby={busy ? retryHelpId : undefined} onClick={() => void approveTaskPlan()} className="ml-3 underline disabled:opacity-50">Retry review</button>}
+        {busy && <span id={retryHelpId} className="ml-2">Available after the current run finishes.</span>}
       </div>
 
-      <p className="mt-4 font-medium" aria-live="polite">Approved: {outputs.filter((o) => o.approved === "approved").length} · Pending: {outputs.filter((o) => o.approved === "pending").length} · Needs revision: {outputs.filter((o) => o.approved === "rejected").length}</p>
-      {incomplete && <div className="mt-4 rounded-xl bg-amber-50 p-4"><p>Finish unfinished tasks and retry any missing review before continuing.</p><button type="button" className="mt-2 underline" onClick={() => goTo("board")}>Return to agent board</button></div>}
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <p className="font-medium" aria-live="polite">Approved: {outputs.filter((o) => o.approved === "approved").length} · Pending: {outputs.filter((o) => o.approved === "pending").length} · Needs revision: {outputs.filter((o) => o.approved === "rejected").length}</p>
+        {!anyConflict && approvable.length > 1 && <button type="button" onClick={() => approvable.forEach((o) => approveOutput(o.id))} className="min-h-11 rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50">Approve all outputs ({approvable.length})</button>}
+      </div>
+      {incomplete && <div className="mt-4 rounded-xl bg-amber-50 p-4"><p>Finish unfinished tasks and retry any missing review before continuing.</p><button type="button" className="mt-2 min-h-11 underline" onClick={() => goTo("board")}>Return to agent board</button></div>}
       <ul className="mt-6 space-y-3">
         {outputs.map((o) => {
           const task = tasks.find((t) => t.id === o.taskId);
           const review = reviews.find((r) => r.outputId === o.id);
+          const conflict = hasConflict({ reviews }, o.id);
+          const verdict = reviewVerdict(review, conflict);
+          const stale = staleTaskIds.includes(o.taskId);
+          const notComplete = task?.state !== "completed";
+          const approveReason = busy ? "Available after the current run finishes." : !review ? "Waiting for the Review Agent result before this output can be approved." : conflict ? "A conflict blocks approval; request a revision instead." : stale ? "Requirements changed since this output was produced; rerun the plan first." : notComplete ? "The task has not completed, so there is nothing final to approve." : null;
+          const reviseReason = busy ? "Available after the current run finishes." : staleTaskIds.length > 0 ? "Rerun the plan to refresh stale outputs before requesting revisions." : notComplete ? "The task has not completed yet." : null;
           return (
             <li
               key={o.id}
@@ -180,14 +223,14 @@ export function ReviewScreen() {
                 {review && (
                   <span
                     className={`rounded px-1.5 py-0.5 text-sm font-semibold uppercase ${
-                      review.result === "pass"
+                      review.result === "pass" && !conflict
                         ? "bg-emerald-100 text-emerald-800"
-                        : review.result === "conflict"
-                          ? "bg-amber-100 text-amber-900"
+                        : conflict
+                          ? "bg-rose-100 text-rose-900"
                           : "bg-amber-100 text-amber-900"
                     }`}
                   >
-                    {review.result === "pass" ? "Pass" : review.result === "conflict" ? "Needs attention" : "Flagged"}
+                    {conflict ? "Conflict" : review.result === "pass" ? "Pass" : "Flagged"}
                   </span>
                 )}
               </div>
@@ -220,18 +263,21 @@ export function ReviewScreen() {
                       <p>Missing: {review.missingItems.join("; ")}</p>
                     )}
                     {review.conflicts.length > 0 && (
-                      <p>Review notes: {review.conflicts.join("; ")}</p>
+                      <p>Conflicts: {review.conflicts.join("; ")}</p>
                     )}
                     {review.suggestions.length > 0 && (
                       <p>Suggestions: {review.suggestions.join("; ")}</p>
                     )}
                   </div>
                 )}
+              {task && <TaskHandoff task={task} tasks={tasks} outputs={outputs} feedbackItems={feedbackItems} />}
               <div className="mt-4 flex flex-wrap gap-3">
-                <button type="button" disabled={busy || hasConflict({ reviews }, o.id) || !review || staleTaskIds.includes(o.taskId) || task?.state !== "completed"} onClick={() => approveOutput(o.id)} className={`rounded-xl border px-4 py-2 font-semibold ${o.approved === "approved" ? "border-teal-700 bg-teal-700 text-white" : "border-slate-300 bg-white text-slate-700"}`}>Approve output</button>
-                <button type="button" disabled={busy || staleTaskIds.length > 0 || task?.state !== "completed"} onClick={() => requestRevision(o.id)} className={`rounded-xl border px-4 py-2 font-semibold ${o.approved === "rejected" ? "border-teal-700 bg-teal-700 text-white" : "border-slate-300 bg-white text-slate-700"}`}>Request revision</button>
+                <button type="button" disabled={!!approveReason} aria-pressed={o.approved === "approved"} aria-label={`Approve output: ${task ? taskLabel(task) : o.taskId}`} aria-describedby={approveReason ? `approve-help-${o.id}` : undefined} onClick={() => approveOutput(o.id)} className={`min-h-11 rounded-xl border px-4 py-2 font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${o.approved === "approved" ? "border-teal-700 bg-teal-700 text-white" : "border-slate-300 bg-white text-slate-700"}`}>{o.approved === "approved" ? "Approved ✓" : "Approve output"}</button>
+                <button type="button" disabled={!!reviseReason} aria-pressed={o.approved === "rejected"} aria-label={`Request revision: ${task ? taskLabel(task) : o.taskId}`} aria-describedby={reviseReason ? `revise-help-${o.id}` : undefined} onClick={() => requestRevision(o.id)} className={`min-h-11 rounded-xl border px-4 py-2 font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${o.approved === "rejected" ? "border-teal-700 bg-teal-700 text-white" : "border-slate-300 bg-white text-slate-700"}`}>Request revision</button>
               </div>
-              {review && review.result !== "pass" && <p className="mt-2 text-sm text-amber-900">Conflicts block approval and final export. Request a revision to resolve them, then rerun review. Other findings remain visible for your assessment.</p>}
+              {verdict && <p className={`mt-2 text-sm ${conflict ? "text-rose-900" : "text-amber-900"}`}>{verdict}</p>}
+              {approveReason && <p id={`approve-help-${o.id}`} className="mt-2 text-sm text-slate-600">Approve output is unavailable: {approveReason}</p>}
+              {reviseReason && <p id={`revise-help-${o.id}`} className="mt-1 text-sm text-slate-600">Request revision is unavailable: {reviseReason}</p>}
               <div className="mt-2 font-mono text-sm text-slate-600">
                 Confidence {Math.round(o.confidence * 100)}% · blockers{" "}
                 {o.blockers.length ? o.blockers.join("; ") : "none"}
@@ -256,13 +302,13 @@ export function FeedbackScreen() {
   const { submitFeedback, skipFeedback, busy, feedbackItems, tasks, outputs, revisionTaskIds, selectRevisionTasks } = store;
   const ready = outputsReady(store);
   const [text, setText] = useState("");
+  const canSubmit = !busy && enoughDetail(text) && revisionTaskIds.length > 0;
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl text-slate-900">Feedback / revision</h1>
+      <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl text-slate-900">{ready ? "Revise or finalize" : "Feedback / revision"}</h1>
       <p className="mt-3 text-base leading-relaxed text-slate-600">
-        Tell the Manager what to change. Affected tasks are updated only after this
-        checkpoint.
+        {ready ? "Every output is approved. Finalize the plan now, or describe one more change and send selected outputs back to their agents." : "Tell the Manager what to change. Affected tasks are updated only after this checkpoint."}
       </p>
 
       <fieldset disabled={busy} className="mt-5 space-y-3 rounded-xl border border-slate-200 p-4">
@@ -274,7 +320,7 @@ export function FeedbackScreen() {
         </label>)}
       </fieldset>
       <div aria-live="polite" className="mt-4 rounded-xl bg-teal-50 p-4 text-teal-900">
-        {revisionTaskIds.length ? <><p>Your feedback will send these outputs back for revision:</p><ul className="mt-2 list-disc pl-5">{tasks.filter((t) => revisionTaskIds.includes(t.id)).map((t) => <li key={t.id}>{taskLabel(t)} → {AGENT_LABELS[t.ownerAgent]}</li>)}</ul></> : <p>Select at least one output to revise, or skip revisions if all outputs are approved.</p>}
+        {revisionTaskIds.length ? <><p>Your feedback will send these outputs back for revision:</p><ul className="mt-2 list-disc pl-5">{tasks.filter((t) => revisionTaskIds.includes(t.id)).map((t) => <li key={t.id}>{taskLabel(t)} → {AGENT_LABELS[t.ownerAgent]}</li>)}</ul></> : <p>{ready ? "No outputs selected. Finalize the approved plan, or select an output to request another revision." : "Select at least one output to revise, or skip revisions if all outputs are approved."}</p>}
       </div>
       <textarea
         disabled={busy}
@@ -302,145 +348,27 @@ export function FeedbackScreen() {
         </ul>
       )}
 
-      <ApprovalBar
-        approveLabel={busy ? "Revising…" : "Apply feedback"}
-        secondaryLabel={ready ? "Skip revisions & finalize approved plan" : "Skip revisions & return to review"}
-        disabled={busy || !enoughDetail(text) || !revisionTaskIds.length}
-        secondaryDisabled={busy}
-        onApprove={() => void submitFeedback(text)}
-        onSecondary={skipFeedback}
-        hint={busy ? "Wait for the revision to finish." : "Select outputs and describe the change in at least 12 characters. Skipping never approves pending or revised work."}
-      />
-    </div>
-  );
-}
-
-export function FinalScreen() {
-  const store = useProjectStore();
-  const { project, requirements, tasks, outputs, reviews, metrics, reset } = store;
-  const approvedOutputs = outputs.filter((o) => o.approved === "approved");
-  if (!outputsReady(store) || project.status !== "complete") return <p role="alert">Complete all approval checkpoints before viewing or exporting the final plan.</p>;
-
-  const approvedReqs = requirements.filter((r) => r.approvalStatus === "approved");
-
-  return (
-    <div className="max-w-3xl">
-      <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl text-slate-900">Final project plan</h1>
-      <p className="mt-3 text-base leading-relaxed text-slate-600">
-        Packaged output for reviewers or your next coding sprint. No automatic
-        deployment.
-      </p>
-
-      <StudioHandoffButton />
-      <button type="button" className="mt-5 rounded-xl bg-teal-700 px-5 py-3 font-semibold text-white" onClick={() => downloadPlan(store)}>Download Markdown</button>
-      <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="text-lg font-semibold text-slate-900">Project summary</h2>
-        <p className="mt-2 font-semibold">{project.title}</p>
-        <p className="mt-1 text-base leading-relaxed text-slate-700">{project.description}</p>
-        <p className="mt-2 text-sm text-slate-500">
-          Users: {project.targetUser} · Status: {project.status}
-        </p>
-      </section>
-
-      <section className="mt-4">
-        <h2 className="text-lg font-semibold text-slate-900">
-          Approved requirements
-        </h2>
-        <ul className="mt-2 list-disc space-y-1 pl-5 text-base leading-relaxed text-slate-800">
-          {approvedReqs.map((r) => (
-            <li key={r.id}>{r.text}</li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="mt-4">
-        <h2 className="text-lg font-semibold text-slate-900">
-          Ordered task plan
-        </h2>
-        <ol className="mt-2 space-y-2">
-          {tasks.map((t) => {
-            return (
-              <li
-                key={t.id}
-                className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
-              >
-                <div className="font-medium text-slate-900">
-                  {t.order}. {t.title}{" "}
-                  <span className="text-sm font-normal text-slate-500">
-                    ({AGENT_LABELS[t.ownerAgent]})
-                  </span>
-                </div>
-                <p className="mt-2">{t.description}</p>
-                <p className="mt-2 text-sm text-slate-600">Depends on: {t.dependencies.map((id) => { const d = tasks.find((x) => x.id === id); return d ? taskLabel(d) : id; }).join("; ") || "No prerequisites"}</p>
-                <p className="mt-2 text-sm text-slate-600">Expected output: {t.expectedOutput}</p>
-              </li>
-            );
-          })}
-        </ol>
-      </section>
-
-      <section className="mt-6">
-        <h2 className="text-lg font-semibold">Approved agent outputs</h2>
-        <ul className="mt-3 space-y-4">{approvedOutputs.map((o) => {
-          const task = tasks.find((t) => t.id === o.taskId)!;
-          const review = reviews.find((r) => r.outputId === o.id);
-          return <li key={o.id} className="rounded-xl border border-slate-200 p-4">
-            <h3 className="font-semibold">{taskLabel(task)} · Approved</h3><p className="mt-2">{o.summary}</p>
-            <p className="mt-2 text-sm">Assumptions: {o.assumptions.join("; ")}</p>
-            <p className="mt-2 text-sm">Next steps: {o.nextSteps.join("; ")}</p>
-            <p className="mt-2 text-sm">Blockers: {o.blockers.join("; ") || "None"} · Confidence: {Math.round(o.confidence * 100)}%</p>
-            {review && <p className="mt-2 text-sm text-amber-900">Review findings: {[...review.missingItems, ...review.conflicts, ...review.suggestions].join("; ") || "No findings"}</p>}
-          </li>;
-        })}</ul>
-      </section>
-      {([ ["testing", "Testing / acceptance information"], ["documentation", "Documentation information"]] as const).map(([role, title]) => {
-        const items = approvedOutputs.filter((o) => tasks.find((t) => t.id === o.taskId)?.ownerAgent === role);
-        return items.length > 0 && <section key={role} className="mt-6"><h2 className="text-lg font-semibold">{title}</h2>{items.map((o) => <p key={o.id} className="mt-2">{o.summary}</p>)}</section>;
-      })}
-      <h2 className="mt-6 text-lg font-semibold">Evaluation metrics</h2>
-      <p className="mt-2 text-sm text-slate-600">Counts reflect this planning session; usefulness is your rating. Planning time saved is an estimate, not a measured result.</p>
-      <section className="mt-4 grid gap-2 sm:grid-cols-3">
-        <MetricChip
-          label="Acceptance"
-          value={`${metrics.userAcceptanceRate}%`}
+      {ready ? (
+        <ApprovalBar
+          approveLabel="Finalize approved plan"
+          secondaryLabel={busy ? "Revising…" : "Request another revision"}
+          disabled={busy}
+          secondaryDisabled={!canSubmit}
+          onApprove={skipFeedback}
+          onSecondary={() => void submitFeedback(text)}
+          hint={busy ? "Wait for the revision to finish." : canSubmit ? "Finalizing keeps every approval as it is. Requesting another revision sends only the selected outputs back." : "Finalizing keeps every approval as it is. To request another revision, select at least one output and describe the change in at least 12 characters."}
         />
-        <MetricChip label="Revisions" value={String(metrics.numberOfRevisions)} />
-        <MetricChip
-          label="Usefulness"
-          value={`${metrics.usefulnessScore}/10`}
+      ) : (
+        <ApprovalBar
+          approveLabel={busy ? "Revising…" : "Apply feedback"}
+          secondaryLabel="Skip revisions & return to review"
+          disabled={!canSubmit}
+          secondaryDisabled={busy}
+          onApprove={() => void submitFeedback(text)}
+          onSecondary={skipFeedback}
+          hint={busy ? "Wait for the revision to finish." : canSubmit ? "Selected outputs are sent back to their agents with this feedback." : "Apply feedback is unavailable until you select outputs and describe the change in at least 12 characters. Skipping never approves pending or revised work."}
         />
-        <MetricChip
-          label="Tasks complete"
-          value={`${metrics.taskCompletionRate}%`}
-        />
-        <MetricChip label="Review issue rate" value={`${metrics.conflictRate}%`} />
-        <MetricChip
-          label="Estimated planning time saved"
-          value={`Estimate: ${metrics.planningTimeSavedMinutes} minutes`}
-        />
-      </section>
-
-
-      <p className="mt-4 text-sm text-slate-500">
-        Reviews logged: {reviews.length}. Planning support only; no repository writes or deployment.
-        Progress is saved in this browser. Download Markdown to keep a separate copy of the deliverables.
-      </p>
-
-      <ApprovalBar
-        approveLabel="Start another project"
-        onApprove={reset}
-      />
-    </div>
-  );
-}
-
-function MetricChip({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-      <div className="text-sm uppercase tracking-wide text-slate-500">
-        {label}
-      </div>
-      <div className="font-mono text-sm font-semibold text-slate-900">{value}</div>
+      )}
     </div>
   );
 }
