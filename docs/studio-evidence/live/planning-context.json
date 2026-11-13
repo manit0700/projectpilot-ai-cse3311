@@ -1,0 +1,180 @@
+{
+  "project": {
+    "id": "live-study-tracker-check",
+    "title": "Study tracker",
+    "description": "A browser-local student study-session tracker with course names, positive whole-number minutes, session deletion and total minutes.",
+    "targetUser": "College students",
+    "approvedSummary": "",
+    "status": "draft",
+    "createdAt": "2026-11-13T03:14:04.369Z"
+  },
+  "questions": [
+    {
+      "id": "questions-1",
+      "prompt": "Should total minutes display be a separate summary panel, or embedded in the session list, and must it update immediately after each add/delete?",
+      "why": "Determines UI layout and reaction requirements",
+      "answer": "One student uses a responsive browser-only HTML, CSS and JavaScript tracker. Store sessions locally, require a course and positive whole-number minutes, allow deletion and show totals. No accounts or backend."
+    },
+    {
+      "id": "questions-2",
+      "prompt": "How should session data be stored and restored across page reloads: localStorage, sessionStorage, or in-memory only?",
+      "why": "Defines persistence requirement and test cases",
+      "answer": "One student uses a responsive browser-only HTML, CSS and JavaScript tracker. Store sessions locally, require a course and positive whole-number minutes, allow deletion and show totals. No accounts or backend."
+    },
+    {
+      "id": "questions-3",
+      "prompt": "What exact validation behavior is expected when course name is empty or minutes are not a positive whole number: block submission with an error message, disable submit, or allow save and flag?",
+      "why": "Defines validation and error requirements",
+      "answer": "One student uses a responsive browser-only HTML, CSS and JavaScript tracker. Store sessions locally, require a course and positive whole-number minutes, allow deletion and show totals. No accounts or backend."
+    },
+    {
+      "id": "questions-4",
+      "prompt": "Should users be able to edit a session after saving, or only add and delete?",
+      "why": "Affects requirement scope and task list",
+      "answer": "One student uses a responsive browser-only HTML, CSS and JavaScript tracker. Store sessions locally, require a course and positive whole-number minutes, allow deletion and show totals. No accounts or backend."
+    }
+  ],
+  "requirements": [
+    {
+      "id": "requirements-1",
+      "projectId": "live-study-tracker-check",
+      "text": "The tracker must store session data (course name, minutes) locally using localStorage to persist across page reloads.",
+      "priority": "must",
+      "approvalStatus": "approved"
+    },
+    {
+      "id": "requirements-2",
+      "projectId": "live-study-tracker-check",
+      "text": "Session creation must require a non-empty course name and a positive whole-number minute value; invalid inputs must block submission and display an inline error message.",
+      "priority": "must",
+      "approvalStatus": "approved"
+    },
+    {
+      "id": "requirements-3",
+      "projectId": "live-study-tracker-check",
+      "text": "The total minutes across all sessions must be displayed in a separate summary panel and must update immediately after any add or delete operation.",
+      "priority": "must",
+      "approvalStatus": "approved"
+    },
+    {
+      "id": "requirements-4",
+      "projectId": "live-study-tracker-check",
+      "text": "Each saved session must be listed with its course name, minutes, and a delete button; clicking delete must remove the session from localStorage and update the list and total.",
+      "priority": "must",
+      "approvalStatus": "approved"
+    },
+    {
+      "id": "requirements-5",
+      "projectId": "live-study-tracker-check",
+      "text": "The interface must be responsive and functional in modern desktop and mobile browsers using only HTML, CSS, and JavaScript.",
+      "priority": "should",
+      "approvalStatus": "approved"
+    },
+    {
+      "id": "requirements-6",
+      "projectId": "live-study-tracker-check",
+      "text": "Editing existing sessions is not required; the system must support only add and delete operations as specified.",
+      "priority": "should",
+      "approvalStatus": "approved"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task-1",
+      "projectId": "live-study-tracker-check",
+      "title": "Build responsive HTML/CSS/JS skeleton with localStorage persistence",
+      "description": "Create the single-file HTML structure with embedded CSS and JavaScript, including input form, session list container, and total summary panel. Wire up localStorage read/write and ensure layout adapts to different screen sizes.",
+      "ownerAgent": "frontend",
+      "dependencies": [],
+      "expectedOutput": "study-tracker.html (complete single file with all markup, styles, and script)",
+      "constraints": [
+        "Must be browser-local, single-file HTML/CSS/JS implementation.",
+        "No external dependencies or backend services allowed.",
+        "All data must persist only via localStorage.",
+        "UI must be responsive across desktop and mobile viewports."
+      ],
+      "state": "queued",
+      "order": 1
+    },
+    {
+      "id": "task-2",
+      "projectId": "live-study-tracker-check",
+      "title": "Implement course and minutes validation with inline error display",
+      "description": "Implement form validation logic in JavaScript. On submit, check course name and minutes. If invalid, show specific error message and do not proceed. If valid, create session object, save to localStorage, update list and total.",
+      "ownerAgent": "frontend",
+      "dependencies": [
+        "task-1"
+      ],
+      "expectedOutput": "Validation logic integrated into study-tracker.html; error messages rendered dynamically",
+      "constraints": [
+        "Course name input must not be empty after trimming whitespace.",
+        "Minutes input must parse as an integer and be greater than zero.",
+        "Invalid submissions must be prevented; no session added to storage or list.",
+        "An inline error message must appear beneath the relevant field and clear on valid input."
+      ],
+      "state": "queued",
+      "order": 2
+    },
+    {
+      "id": "task-3",
+      "projectId": "live-study-tracker-check",
+      "title": "Implement real-time total minutes summary panel",
+      "description": "Write a function to compute total minutes from localStorage data. Call it on load, after add, and after delete. Render the total in a dedicated panel (e.g., header or sidebar) with clear labeling.",
+      "ownerAgent": "frontend",
+      "dependencies": [
+        "task-1",
+        "task-2"
+      ],
+      "expectedOutput": "Total minutes panel updated in real-time; correct sum displayed on all operations",
+      "constraints": [
+        "Total minutes must be calculated by summing all stored sessions.",
+        "Total must update immediately after adding or deleting any session.",
+        "Total must be displayed in a visually distinct summary panel separate from the session list.",
+        "Total must reflect current localStorage state on page load."
+      ],
+      "state": "queued",
+      "order": 3
+    },
+    {
+      "id": "task-4",
+      "projectId": "live-study-tracker-check",
+      "title": "Implement session list rendering and delete functionality",
+      "description": "Generate session list items dynamically from localStorage. Attach event listeners to delete buttons. On click, filter out the session, update storage, re-render list, and update total.",
+      "ownerAgent": "frontend",
+      "dependencies": [
+        "task-1",
+        "task-2"
+      ],
+      "expectedOutput": "Session list with delete functionality; removal updates storage, UI, and total instantly",
+      "constraints": [
+        "Each session must be rendered as a list item showing course name and minutes.",
+        "Each item must include a delete button with clear labeling.",
+        "Clicking delete must remove the session from localStorage, remove the item from DOM, and recalculate total.",
+        "Delete action must be confirmed or directly executed without confirmation per spec."
+      ],
+      "state": "queued",
+      "order": 4
+    },
+    {
+      "id": "task-5",
+      "projectId": "live-study-tracker-check",
+      "title": "Verify no edit functionality and enforce add/delete-only constraint",
+      "description": "Audit the interface to ensure no edit controls are present for saved sessions. Confirm that all interactions are limited to form submission (add) and delete buttons. Document constraint compliance.",
+      "ownerAgent": "frontend",
+      "dependencies": [
+        "task-1",
+        "task-2",
+        "task-3",
+        "task-4"
+      ],
+      "expectedOutput": "Verification report confirming no edit functionality; UI restricted to add/delete only",
+      "constraints": [
+        "No editing of existing sessions allowed.",
+        "Only add and delete operations must be supported.",
+        "UI must not include edit buttons or editable fields for saved sessions."
+      ],
+      "state": "queued",
+      "order": 5
+    }
+  ]
+}

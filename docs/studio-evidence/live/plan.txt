@@ -1,0 +1,106 @@
+# Student Study-Session Tracker — Specification
+
+**To:** Developer  
+**From:** Manager & Designer  
+**Project:** Compact one-page study-session tracker  
+
+---
+
+## 1. Overview
+A single-page application that lets a student log study sessions per course, view a running total of minutes, and remove individual entries. All functionality, styling, and behavior must fit within **120 lines per file** and use **no external assets or third‑party libraries**. The page must be fully accessible (keyboard operability, screen‑reader labels, color contrast) and respond gracefully from 320 px to 1200 px wide.
+
+**Assumptions**
+- Supplied HTML containers (`<main>`, etc.) are empty; I will inject the markup.
+- No backend or persistence is required; data lives in memory for the demo.
+- “Positive whole‑number minutes” means ≥ 1 and no decimals or negative values.
+- The design will use system fonts and minimal CSS (no icon fonts, no image assets).
+
+---
+
+## 2. Sections & hierarchy
+| Area | Purpose |
+|------|---------|
+| **Form** | `course` text input, `minutes` number input, `Add session` button |
+| **List** | Horizontal row per session: course name, minutes, delete button |
+| **Summary** | “Total study minutes: *XXX*” (updates live) |
+| **Empty state** | When no sessions exist, display “No study sessions recorded.” |
+
+Visual order: Form → List → Summary. The empty state supersedes the list when the list is empty.
+
+---
+
+## 3. Visual direction
+- **Color palette** (system colors, no custom images):  
+  - Background: `hsl(210 20% 98%)` (very light cool gray)  
+  - Primary accent: `hsl(42 70% 55%)` (warm amber) for button background, focus outline  
+  - Text: `hsl(222 47% 11%)` (near‑black for contrast)  
+  - Disabled/non‑primary: `hsl(210 10% 45%)`
+- **Typography**: System stack `system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif`; `clamp(1rem, 2vw, 1.125rem)` for body, `clamp(1.25rem, 3vw, 1.5rem)` for headings.
+- **Layout**: Single column on narrow viewports; on ≥ 640 px, form inputs sit on one line with a small gap; list rows become compact cards with delete “×” on the right.
+- **No box‑shadows or gradients** beyond a subtle `0.0625em` border on focused elements.
+
+---
+
+## 4. Accessibility (a11y)
+| Requirement | Implementation |
+|-------------|----------------|
+| **Labels** | `<label>` elements linked to inputs via `for`/`id`. Course label: “Course name”. Minutes label: “Study minutes”. |
+| **Keyboard** | All interactive elements reachable via `Tab`. `Enter` activates Add; `Delete` button has `aria-label="Remove [course] study session"`; focus ring uses the accent color at `4px` width. |
+| **Screen reader** | `role="status"` for total minutes announcement; `aria-live="polite"` so totals are announced when they change. Empty state has `aria-live="polite"` too. |
+| **Color contrast** | Foreground vs. background ≥ 4.5:1 (verified with the chosen hues). |
+| **Focus outline** | Visible on all focusable elements; no `outline: none` overrides. |
+| **Responsive meta** | `<meta name="viewport" content="width=device-width, initial-scale=1">` (included in HTML head). |
+
+---
+
+## 5. Interactions
+1. **Add session**  
+   - Clicking **Add** or pressing `Enter` while the minutes field is focused adds a row.  
+   - Validation: `minutes` must be a positive whole number (≥ 1). If invalid, show an inline error message (“Please enter a whole number of minutes ≥ 1”) without submitting; field borders turn `hsl(0 84% 55%)` on error.  
+   - After successful add: minutes input resets to empty, focus returns to the minutes field for rapid chaining.
+
+2. **Delete session**  
+   - Each row contains a delete button (×).  
+   - Clicking removes the row instantly; total updates.  
+   - Focus moves to the nearest interactive element (preferably the minutes field) after deletion.
+
+3. **Total study minutes**  
+   - Calculated as the sum of all `minutes` values in the list.  
+   - Displayed as “Total study minutes: *NN*”.  
+   - Announced via ARIA live region after each addition/removal.
+
+4. **Empty state**  
+   - When the list is empty, show “No study sessions recorded.” centered above the summary.  
+   - Summary still displays “Total study minutes: 0”.  
+   - No rows or delete buttons are rendered.
+
+---
+
+## 6. Acceptance criteria (the developer must verify)
+| # | Criterion |
+|---|-----------|
+| 1 | Page loads with the form, list area, and summary visible. |
+| 2 | Course field accepts any text; minutes field accepts only positive whole numbers (≥ 1). Invalid entries show an error and prevent addition. |
+| 3 | Pressing **Add** or `Enter` adds a new row beneath the list; the row shows the course name, minutes, and a delete × button. |
+| 4 | Each delete button removes its row and updates the total minutes. |
+| 5 | Total study minutes display updates live after add/delete; a screen reader announces the change. |
+| 6 | When no sessions exist, the empty‑state message appears, the list is absent, and the total shows 0. |
+| 7 | Layout is single‑column ≤ 639 px; on ≥ 640 px the form sits on one line and list rows are compact. |
+| 8 | All focusable elements have a visible focus ring (minimum 4 px, accent color). |
+| 9 | No JavaScript errors in the console; no `<script>` src attributes pointing to external files. |
+|10 | Total CSS and JS combined stay ≤ 120 lines per file (as counted by `wc -l`). |
+
+---
+
+## 7. Deliverables (files I will supply, you will fill)
+| File | Current content | Expected output |
+|------|-----------------|-----------------|
+| `html` | `<main></main>` | Complete markup (form, list, summary, empty state) inside `<main>`, with `<head>` (meta, title, embedded CSS). |
+| `css` | `` | Embedded CSS (no `@import`, no external URLs) styling the markup, respecting the visual palette and line limit. |
+| `js` | `` | Embedded script (no `type="module"` if not needed, but vanilla JS only) handling add/delete/total/live regions. |
+
+**Do not** add `<html>` or `<body>` tags—just the `<main>` content and an embedded `<style>`/`<script>` block within a minimal `<head>` I will prepend. Keep each file ≤ 120 lines.
+
+---
+
+*End of specification.*

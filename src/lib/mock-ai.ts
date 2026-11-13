@@ -1,27 +1,34 @@
 import { AGENTS, uid } from "./agents";
+import { acceptanceFor } from "./mock-acceptance";
+import { deliverableNextSteps, deliverableSummary, revisedSummary } from "./mock-deliverables";
 import type {
   AgentOutput,
   AgentRole,
   ClarifyingQuestion,
-  EvaluationMetrics,
-  Feedback,
   Project,
   Requirement,
   Review,
   Task,
 } from "./types";
 
-function titleFromIdea(idea: string): string {
+export function titleFromIdea(idea: string): string {
   const cleaned = idea.trim().replace(/\s+/g, " ");
   if (cleaned.length <= 48) return cleaned || "Untitled Project";
   return `${cleaned.slice(0, 45)}...`;
 }
 
+const MAX_BRIEF_TEXT = 4000;
+const optionalText = (value: string | undefined) => value?.trim().slice(0, MAX_BRIEF_TEXT) || undefined;
+
 export function createProject(
   idea: string,
   targetUser: string,
+  options: { rubric?: string; constitution?: string } = {},
 ): Project {
+  const rubric = optionalText(options.rubric), constitution = optionalText(options.constitution);
   return {
+    ...(rubric ? { rubric } : {}),
+    ...(constitution ? { constitution } : {}),
     id: uid("proj"),
     title: titleFromIdea(idea),
     description: idea.trim(),
@@ -99,38 +106,14 @@ export function generateRequirements(
     "not specified";
 
   const texts: { text: string; priority: Requirement["priority"] }[] = [
-    {
-      text: `Support the project idea: ${project.description}`,
-      priority: "must",
-    },
-    {
-      text: `Serve target users: ${project.targetUser}`,
-      priority: "must",
-    },
-    {
-    text: `Deliver project focus: ${coreFeature}`,
-      priority: "must",
-    },
-    {
-      text: `Respect stack constraints: ${stack}`,
-      priority: "should",
-    },
-    {
-      text: `Auth decision for first release: ${auth}`,
-      priority: "should",
-    },
-    {
-      text: "Provide clear human approval checkpoints before major changes",
-      priority: "must",
-    },
-    {
-      text: "Include a testing checklist and README for reviewers",
-      priority: "should",
-    },
-    {
-      text: "Do not auto-deploy; require explicit user approval for repo/deploy actions",
-      priority: "must",
-    },
+    { text: `Support the project idea: ${project.description}`, priority: "must" },
+    { text: `Serve target users: ${project.targetUser}`, priority: "must" },
+    { text: `Deliver project focus: ${coreFeature}`, priority: "must" },
+    { text: `Respect stack constraints: ${stack}`, priority: "should" },
+    { text: `Auth decision for first release: ${auth}`, priority: "should" },
+    { text: "Provide clear human approval checkpoints before major changes", priority: "must" },
+    { text: "Include a testing checklist and README for reviewers", priority: "should" },
+    { text: "Do not auto-deploy; require explicit user approval for repo/deploy actions", priority: "must" },
   ];
 
   return texts.map((item) => ({
@@ -139,6 +122,7 @@ export function generateRequirements(
     text: item.text,
     priority: item.priority,
     approvalStatus: "pending" as const,
+    acceptance: acceptanceFor(item.text, item.priority),
   }));
 }
 
@@ -241,175 +225,97 @@ export function generateTasks(
 
   // Dependency ordering: data → api → ui wire → server → test/docs
   const byTitle = Object.fromEntries(tasks.map((t) => [t.title, t.id]));
-  const withDeps = tasks.map((t) => {
-    if (t.title === "Design core API endpoints") {
-      return { ...t, dependencies: [byTitle["Define data model"]] };
-    }
-    if (t.title === "Wire UI to API contract") {
-      return {
-        ...t,
-        dependencies: [
-          byTitle["Sketch primary UI screens"],
-          byTitle["Design core API endpoints"],
-        ],
-        state: "blocked" as const,
-      };
-    }
-    if (t.title === "Implement server handlers") {
-      return {
-        ...t,
-        dependencies: [
-          byTitle["Define data model"],
-          byTitle["Design core API endpoints"],
-        ],
-        state: "blocked" as const,
-      };
-    }
-    if (t.title === "Create testing checklist") {
-      return {
-        ...t,
-        dependencies: [
-          byTitle["Wire UI to API contract"],
-          byTitle["Implement server handlers"],
-        ],
-        state: "blocked" as const,
-      };
-    }
-    if (t.title === "Draft README / write-up") {
-      return {
-        ...t,
-        dependencies: [byTitle["Create testing checklist"]],
-        state: "blocked" as const,
-      };
-    }
-    return t;
+  const dependsOn: Record<string, string[]> = {
+    "Design core API endpoints": [byTitle["Define data model"]],
+    "Wire UI to API contract": [byTitle["Sketch primary UI screens"], byTitle["Design core API endpoints"]],
+    "Implement server handlers": [byTitle["Define data model"], byTitle["Design core API endpoints"]],
+    "Create testing checklist": [byTitle["Wire UI to API contract"], byTitle["Implement server handlers"]],
+    "Draft README / write-up": [byTitle["Create testing checklist"]],
+  };
+  return tasks.map((t) => {
+    const dependencies = dependsOn[t.title];
+    // Preserved from the original plan: the API task starts queued, the rest blocked.
+    return dependencies ? { ...t, dependencies, state: t.title === "Design core API endpoints" ? "queued" : "blocked" } : t;
   });
-
-  return withDeps;
 }
 
-function orderedReadyTasks(tasks: Task[]): Task[] {
-  const completed = new Set(
-    tasks.filter((t) => t.state === "completed").map((t) => t.id),
-  );
-  return [...tasks]
-    .sort((a, b) => a.order - b.order)
-    .filter((t) => {
-      if (t.state === "completed" || t.state === "failed") return false;
-      return t.dependencies.every((d) => completed.has(d));
-    });
+/** Pace of one simulated specialist step in demo mode. Tests pass their own `stepMs`. */
+export const DEMO_STEP_MS = 1500;
+
+/** Resolves after `ms`; rejects with an AbortError as soon as `signal` aborts (Stop button). */
+export function demoPause(ms = DEMO_STEP_MS, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(new DOMException("Stopped", "AbortError"));
+    const onAbort = () => { clearTimeout(timer); reject(new DOMException("Stopped", "AbortError")); };
+    const timer = setTimeout(() => { signal?.removeEventListener("abort", onAbort); resolve(); }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
-export function topologicalOrder(tasks: Task[]): Task[] {
-  const byId = Object.fromEntries(tasks.map((t) => [t.id, t]));
-  const visited = new Set<string>();
-  const result: Task[] = [];
+// Deterministic so every demo run looks the same: the testing specialist always
+// times out once (retry handling is visible), confidence is fixed per role, and the
+// retried output is less confident so the Review Agent has something to flag.
+const CONFIDENCE_BY_ROLE: Partial<Record<AgentRole, number>> = {
+  database: 0.9,
+  backend: 0.86,
+  frontend: 0.84,
+  testing: 0.88,
+  documentation: 0.87,
+};
+const RETRIED_CONFIDENCE = 0.72;
 
-  function visit(id: string) {
-    if (visited.has(id)) return;
-    visited.add(id);
-    const task = byId[id];
-    if (!task) return;
-    task.dependencies.forEach(visit);
-    result.push(task);
-  }
-
-  [...tasks]
-    .sort((a, b) => a.order - b.order)
-    .forEach((t) => visit(t.id));
-  return result;
-}
+export type AgentRunOptions = {
+  /** Called when the first attempt times out, before the retry starts. */
+  onRetry?: (attempt: number) => void;
+  stepMs?: number;
+  signal?: AbortSignal;
+};
 
 export async function runAgentWithRetry(
   task: Task,
   project: Project,
-  attempt = 0,
+  options: AgentRunOptions = {},
 ): Promise<AgentOutput> {
-  // Simulate occasional timeout on first attempt for one task type
-  const shouldTimeout =
-    attempt === 0 && task.ownerAgent === "testing" && Math.random() < 0.35;
-
-  await new Promise((r) => setTimeout(r, 350 + Math.random() * 450));
-
-  if (shouldTimeout) {
-    return runAgentWithRetry(task, project, 1);
+  const stepMs = options.stepMs ?? DEMO_STEP_MS;
+  const forcedTimeout = task.ownerAgent === "testing";
+  let attempt = 0;
+  if (forcedTimeout) {
+    await demoPause(stepMs, options.signal);
+    attempt = 1;
+    options.onRetry?.(attempt);
   }
+  await demoPause(stepMs, options.signal);
 
   const role = task.ownerAgent;
-  const summaryByRole: Record<string, string> = {
-    frontend: `UI plan for "${task.title}": screens, key controls, and approval CTAs aligned to ${project.title}.`,
-    backend: `API plan for "${task.title}": endpoints, validation rules, and timeout/retry handling.`,
-    database: `Data model for "${task.title}": entities Project, Requirement, Task, AgentOutput, Review, Feedback.`,
-    testing: `Testing checklist for "${task.title}": happy path, approval gates, review issue cases, revision loop.`,
-    documentation: `Docs outline for "${task.title}": setup, testing checklist, workflow steps, agent roles, metrics, privacy notes.`,
-  };
-
-  const confidence = shouldTimeout
-    ? 0.72
-    : 0.78 + Math.random() * 0.18;
+  const confidence = attempt > 0 ? RETRIED_CONFIDENCE : CONFIDENCE_BY_ROLE[role] ?? 0.8;
 
   return {
     id: uid("out"),
     taskId: task.id,
-    summary: summaryByRole[role] ?? `Completed planning for ${task.title}.`,
+    summary: deliverableSummary(task, project),
     assumptions: [
       `Target user is ${project.targetUser}`,
       "The project prioritizes planning over production deployment",
       AGENTS.find((a) => a.role === role)?.capability ?? "specialist capability",
     ],
     blockers: confidence < 0.8 ? ["Needs clearer acceptance criteria from user"] : [],
-    confidence: Number(confidence.toFixed(2)),
-    nextSteps: [
-      "Wait for manager aggregation",
-      "Submit to Review Agent",
-      "Request user approval before major changes",
-    ],
+    confidence,
+    nextSteps: deliverableNextSteps(role),
     retryCount: attempt,
     approved: "pending",
   };
 }
 
-export function runAllReadyAgents(
-  tasks: Task[],
-  project: Project,
-  existing: AgentOutput[],
-): Promise<{ tasks: Task[]; outputs: AgentOutput[] }> {
-  return (async () => {
-    let currentTasks = tasks.map((t) => ({ ...t }));
-    let outputs = [...existing];
-    const maxPasses = currentTasks.length + 2;
-
-    for (let pass = 0; pass < maxPasses; pass++) {
-      const ready = orderedReadyTasks(currentTasks).filter(
-        (t) => !outputs.some((o) => o.taskId === t.id),
-      );
-      if (ready.length === 0) break;
-
-      for (const task of ready) {
-        currentTasks = currentTasks.map((t) =>
-          t.id === task.id ? { ...t, state: "in_progress" as const } : t,
-        );
-        const output = await runAgentWithRetry(task, project);
-        outputs = [...outputs.filter((o) => o.taskId !== task.id), output];
-        currentTasks = currentTasks.map((t) =>
-          t.id === task.id ? { ...t, state: "completed" as const } : t,
-        );
-        // Unblock dependents
-        currentTasks = currentTasks.map((t) => {
-          if (t.state !== "blocked") return t;
-          const done = new Set(
-            currentTasks.filter((x) => x.state === "completed").map((x) => x.id),
-          );
-          if (t.dependencies.every((d) => done.has(d))) {
-            return { ...t, state: "queued" as const };
-          }
-          return t;
-        });
-      }
-    }
-
-    return { tasks: currentTasks, outputs };
-  })();
+/** Demo-mode revision: rewrite the previous deliverable for the feedback, in the specialist's own terms. */
+export function reviseAgentOutput(task: Task, previous: AgentOutput, feedback: string): AgentOutput {
+  return {
+    ...previous,
+    summary: revisedSummary(task, previous, feedback),
+    blockers: [],
+    confidence: Math.max(previous.confidence, 0.8),
+    nextSteps: ["Review the revision against the requested criteria", "Request user approval before major changes"],
+    approved: "pending",
+  };
 }
 
 export function reviewOutputs(
@@ -474,97 +380,4 @@ export function reviewOutputs(
       : null;
 
   return { reviews, conflictSummary };
-}
-
-export function applyFeedback(
-  feedbackText: string,
-  tasks: Task[],
-): Feedback {
-  const lower = feedbackText.toLowerCase();
-  const affected = tasks
-    .filter((t) => {
-      if (lower.includes("ui") || lower.includes("frontend")) {
-        return t.ownerAgent === "frontend";
-      }
-      if (lower.includes("api") || lower.includes("backend")) {
-        return t.ownerAgent === "backend";
-      }
-      if (lower.includes("data") || lower.includes("schema")) {
-        return t.ownerAgent === "database";
-      }
-      if (lower.includes("test")) return t.ownerAgent === "testing";
-      if (lower.includes("doc") || lower.includes("readme")) {
-        return t.ownerAgent === "documentation";
-      }
-      return t.ownerAgent === "frontend" || t.ownerAgent === "backend";
-    })
-    .map((t) => t.id);
-
-  return {
-    id: uid("fb"),
-    projectId: tasks[0]?.projectId ?? uid("proj"),
-    userRequest: feedbackText.trim(),
-    affectedTasks: affected.length ? affected : tasks.slice(0, 2).map((t) => t.id),
-    revisionStatus: "open",
-  };
-}
-
-export function computeMetrics(input: {
-  requirements: Requirement[];
-  tasks: Task[];
-  outputs: AgentOutput[];
-  reviews: Review[];
-  feedbackItems: Feedback[];
-  startedAt: number;
-  usefulnessScore: number;
-}): EvaluationMetrics {
-  const approvedReqs = input.requirements.filter(
-    (r) => r.approvalStatus === "approved",
-  ).length;
-  const decidedReqs = input.requirements.filter(
-    (r) => r.approvalStatus !== "pending",
-  ).length;
-  const completedTasks = input.tasks.filter((t) => t.state === "completed").length;
-  const conflicts = input.reviews.filter((r) => r.result === "conflict").length;
-  const elapsedMin = Math.max(
-    1,
-    Math.round((Date.now() - input.startedAt) / 60000),
-  );
-
-  return {
-    userAcceptanceRate:
-      decidedReqs === 0
-        ? 0
-        : Number(((approvedReqs / decidedReqs) * 100).toFixed(1)),
-    numberOfRevisions: input.feedbackItems.filter(
-      (f) => f.revisionStatus === "applied",
-    ).length,
-    taskCompletionRate:
-      input.tasks.length === 0
-        ? 0
-        : Number(((completedTasks / input.tasks.length) * 100).toFixed(1)),
-    conflictRate:
-      input.reviews.length === 0
-        ? 0
-        : Number(((conflicts / input.reviews.length) * 100).toFixed(1)),
-    planningTimeSavedMinutes: Math.max(15, 90 - elapsedMin * 5),
-    usefulnessScore: input.usefulnessScore,
-  };
-}
-
-export function buildApprovedSummary(
-  project: Project,
-  requirements: Requirement[],
-  tasks: Task[],
-): string {
-  const musts = requirements
-    .filter((r) => r.priority === "must" && r.approvalStatus === "approved")
-    .map((r) => r.text);
-  return [
-    `Project: ${project.title}`,
-    `Users: ${project.targetUser}`,
-    `Idea: ${project.description}`,
-    `Must-haves: ${musts.join(" | ") || "none listed"}`,
-    `Tasks planned: ${tasks.length} (dependency-ordered)`,
-  ].join("\n");
 }

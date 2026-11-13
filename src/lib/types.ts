@@ -49,6 +49,10 @@ export interface Project {
   approvedSummary: string;
   status: ProjectStatus;
   createdAt: string;
+  /** Optional grading rubric the plan should satisfy; trimmed, at most 4,000 characters. */
+  rubric?: string;
+  /** Optional project constitution (standing rules for every agent); trimmed, at most 4,000 characters. */
+  constitution?: string;
 }
 
 export interface ClarifyingQuestion {
@@ -56,6 +60,8 @@ export interface ClarifyingQuestion {
   prompt: string;
   answer: string;
   why: string;
+  /** True while the answer is an unedited AI/manager draft; cleared when the user edits it. */
+  suggested?: boolean;
 }
 
 export interface Requirement {
@@ -64,6 +70,8 @@ export interface Requirement {
   text: string;
   priority: Priority;
   approvalStatus: ApprovalStatus;
+  /** Given/When/Then acceptance criteria, at most 4 per requirement. */
+  acceptance?: string[];
 }
 
 export interface Task {
@@ -83,7 +91,7 @@ export interface Agent {
   id: string;
   role: AgentRole;
   capability: string;
-  availability: "available" | "busy" | "offline";
+  availability: "available" | "busy";
 }
 
 export interface AgentOutput {
@@ -96,6 +104,8 @@ export interface AgentOutput {
   nextSteps: string[];
   retryCount: number;
   approved: ApprovalStatus;
+  /** True once a person rewrote the summary, so the AI original is never mistaken for the final text. */
+  humanEdited?: boolean;
 }
 
 export interface Review {
@@ -115,6 +125,16 @@ export interface Feedback {
   revisionStatus: "open" | "applied" | "dismissed";
 }
 
+/** Running total of model calls in this project. Stays zero in Demo mode: nothing is estimated. */
+export interface UsageSummary {
+  requests: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalLatencyMs: number;
+  /** Distinct `provider/model` labels that served requests. */
+  models: string[];
+}
+
 export interface ManagerNote {
   id: string;
   at: string;
@@ -127,8 +147,10 @@ export interface EvaluationMetrics {
   numberOfRevisions: number;
   taskCompletionRate: number;
   conflictRate: number;
-  planningTimeSavedMinutes: number;
-  usefulnessScore: number;
+  /** Measured wall-clock minutes from project start to completion (or now). */
+  planningElapsedMinutes: number;
+  /** User's own 1-10 rating; null until the user rates. */
+  usefulnessScore: number | null;
 }
 
 export interface ProjectContext {
@@ -144,7 +166,7 @@ export interface ProjectContext {
   metrics: EvaluationMetrics;
   currentStep: WorkflowStep;
   planApproved: boolean;
-  sensitiveUploadAck: boolean;
+  /** Epoch ms when the project started; the measured planning time counts from here. */
   startedAt: number;
   conflictSummary: string | null;
 }

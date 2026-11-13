@@ -13,14 +13,22 @@ import {
   RequirementsScreen,
   TasksScreen,
 } from "@/components/screens-early";
-import { LiveAccess } from "./live-access";
+import { LIVE_CONSENT_KEY, LiveAccess, toProvider, type LiveProvider } from "./live-access";
+import { ExportPanel } from "@/components/export-panel";
+import { HeaderBar } from "@/components/header-bar";
+import { Shortcuts } from "@/components/shortcuts";
 import {
   BottomNavigation,
   ManagerPanel,
   MetricsPanel,
-  WorkflowStepper,
 } from "@/components/shell";
 import { ProjectStoreProvider, useProjectStore } from "@/lib/store";
+
+const PROVIDER_LABEL: Record<LiveProvider, string> = { openai: "OpenAI", openrouter: "OpenRouter", gemini: "Gemini" };
+
+function consentAccepted(): boolean {
+  try { return sessionStorage.getItem(LIVE_CONSENT_KEY) === "1"; } catch { return false; }
+}
 
 function ScreenRouter() {
   const { currentStep } = useProjectStore();
@@ -46,13 +54,40 @@ function ScreenRouter() {
   }
 }
 
+function ExportMenu({ inline }: { inline: boolean }) {
+  return (
+    <details className={inline ? "" : "relative"}>
+      <summary className="flex min-h-11 cursor-pointer items-center rounded-xl border border-slate-300 px-4 text-sm font-medium text-slate-800">Export</summary>
+      <div className={inline ? "mt-2" : "absolute right-0 top-full z-30 mt-1 max-h-[70vh] w-[min(34rem,calc(100vw-2rem))] overflow-auto rounded-xl border border-slate-200 bg-white p-2 shadow-lg"}>
+        <ExportPanel />
+      </div>
+    </details>
+  );
+}
+
 function AppShell() {
-  const { reset, currentStep, busy, workflowNotice, managerMode, setManagerMode, savedStatus, hydrated, project } = useProjectStore();
+  const { currentStep, busy, workflowNotice, managerMode, hydrated, project } = useProjectStore();
   const [liveReady, setLiveReady] = useState(false);
+  const [provider, setProvider] = useState<LiveProvider>("openai");
+  const [providerConfigured, setProviderConfigured] = useState(false);
+  // Demo stays the default for every fresh project; a configured provider only
+  // labels the Live option. Live is opt-in and still requires consent.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/manager").then((r) => r.json()).then((config) => {
+      if (cancelled) return;
+      setProvider(toProvider(config.provider));
+      setProviderConfigured(config.configured === true);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
   useEffect(() => {
     if (managerMode !== "live") return;
     let cancelled = false;
-    fetch("/api/live-access").then((r) => r.json()).then((result) => { if (!cancelled) setLiveReady(result.authenticated === true); }).catch(() => {});
+    fetch("/api/live-access").then((r) => r.json()).then((result) => {
+      // A dev server without an access code reports authenticated; consent is still required.
+      if (!cancelled) setLiveReady(result.authenticated === true && consentAccepted());
+    }).catch(() => {});
     return () => { cancelled = true; };
   }, [managerMode]);
   const mainRef = useRef<HTMLElement>(null);
@@ -65,48 +100,30 @@ function AppShell() {
     previousStep.current = currentStep;
   }, [currentStep]);
 
+  const modeLocked = busy || !!project.id || !hydrated;
+  const modeLockReason = !hydrated ? "Loading saved progress." : busy ? "Agents are running." : project.id ? "A project is open. Reset to start a new project in another mode." : null;
+  const isLive = managerMode === "live";
+
   return (
     <div className="flex min-h-screen flex-col bg-[var(--pp-bg)] text-slate-900">
       <a href="#main-content" className="sr-only focus:not-sr-only focus:mx-4 focus:my-2 focus:rounded-lg focus:bg-white focus:p-3 focus:text-teal-800">Skip to main content</a>
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-5 sm:px-6">
-          <div>
-            <div className="text-2xl font-semibold tracking-tight text-slate-900">
-              ProjectPilot AI
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="text-sm font-medium">Agent mode <select aria-label="Agent mode" value={managerMode} disabled={busy || !!project.id || !hydrated} onChange={(e) => setManagerMode(e.target.value as "demo" | "live")} className="ml-2 rounded-lg border border-slate-300 p-2"><option value="demo">Demo</option><option value="live">Live API</option></select></label>
-            {managerMode === "live" && <button type="button" disabled={busy} className="underline" onClick={() => setLiveReady(false)}>Live access</button>}
-            {currentStep !== "idea" && (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => { if (window.confirm("Start over? This clears the current saved project.")) reset(); }}
-                className="min-h-11 rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              >
-                Reset
-              </button>
-            )}
-          </div>
-        </div>
-        <div className="mx-auto max-w-7xl px-4 pb-5 sm:px-6">
-          <p className="mb-2 text-sm text-slate-600" role="status">{savedStatus} <button type="button" className="underline" onClick={() => {
-            const raw = localStorage.getItem("projectpilot-recovery");
-            if (!raw) return;
-            const url = URL.createObjectURL(new Blob([raw], { type: "text/plain" }));
-            const link = document.createElement("a"); link.href = url; link.download = "projectpilot-recovery.txt"; link.click(); URL.revokeObjectURL(url);
-          }}>Download recovery data</button> · {managerMode === "live" ? "Live manager, specialists, and review · Generated code needs human testing." : "Demo mode · Prepared sample responses."}</p>
-          <WorkflowStepper />
-        </div>
-      </header>
+      <HeaderBar
+        isLive={isLive}
+        providerLabel={PROVIDER_LABEL[provider]}
+        providerConfigured={providerConfigured}
+        modeLocked={modeLocked}
+        modeLockReason={modeLockReason}
+        onLiveAccess={() => setLiveReady(false)}
+        exportSlot={(inline) => <ExportMenu inline={inline} />}
+      />
+      <Shortcuts />
 
-      <div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+      <div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-4 sm:px-6 sm:py-8">
         <MetricsPanel />
         <div className="grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
-          <main ref={mainRef} id="main-content" tabIndex={-1} className="scroll-mt-6 min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
+          <main ref={mainRef} id="main-content" tabIndex={-1} className="scroll-mt-6 min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-8">
             {workflowNotice && <p role="status" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-relaxed text-amber-950">{workflowNotice}</p>}
-            {hydrated ? managerMode === "live" && !liveReady ? <LiveAccess onUnlocked={() => setLiveReady(true)} /> : <><ScreenRouter /><BottomNavigation /></> : <p role="status">Loading saved project…</p>}
+            {hydrated ? isLive && !liveReady ? <LiveAccess provider={provider} onUnlocked={() => setLiveReady(true)} /> : <><ScreenRouter /><BottomNavigation /></> : <p role="status">Loading saved project…</p>}
           </main>
           <ManagerPanel />
         </div>

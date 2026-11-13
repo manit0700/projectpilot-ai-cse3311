@@ -62,14 +62,10 @@ export const WORKFLOW_STEPS = [
   { id: "tasks", label: "Tasks" },
   { id: "board", label: "Agents" },
   { id: "review", label: "Review" },
-  { id: "feedback", label: "Feedback" },
+  { id: "feedback", label: "Revise or finalize" },
   { id: "final", label: "Final Plan" },
 ] as const;
 
 export function uid(prefix: string): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
-}
-
-export function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

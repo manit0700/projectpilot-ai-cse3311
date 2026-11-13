@@ -1,13 +1,21 @@
+// Keyboard-only browser smoke test in Demo mode. No AI provider is contacted.
+// Target: PROJECTPILOT_URL (default http://localhost:3314). Set PLAYWRIGHT_CHANNEL=chrome
+// to use an installed Chrome; by default Playwright's bundled Chromium and WebKit run.
+// Results and optional slow-keyboard evidence are written under artifacts/ (git-ignored).
 import { chromium, webkit } from 'playwright';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 const base = process.env.PROJECTPILOT_URL || 'http://localhost:3314';
+const artifacts = process.env.PROJECTPILOT_ARTIFACTS_DIR || 'artifacts';
+const channel = process.env.PLAYWRIGHT_CHANNEL ? { channel: process.env.PLAYWRIGHT_CHANNEL } : {};
 const results = [];
 const slow = process.env.SLOW_KEYBOARD === '1';
-const evidenceDir = process.env.KEYBOARD_EVIDENCE_DIR || 'docs/iteration3-evidence/slow-keyboard';
+const evidenceDir = process.env.KEYBOARD_EVIDENCE_DIR || `${artifacts}/slow-keyboard`;
 if (slow) await fs.mkdir(evidenceDir, { recursive: true });
 
-for (const [name, engine, options] of [['Chrome', chromium, { channel: 'chrome' }], ['WebKit', webkit, {}]]) {
+// PROJECTPILOT_ENGINES=chromium limits the run to the Chromium-family browser (WebKit may not be installed).
+const only = (process.env.PROJECTPILOT_ENGINES || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+for (const [name, engine, options] of [[channel.channel ? 'Chrome' : 'Chromium', chromium, channel], ['WebKit', webkit, {}]].filter(([n]) => !only.length || only.includes(n.toLowerCase()) || (only.includes('chromium') && n !== 'WebKit'))) {
   const browser = await engine.launch({ headless: true, ...options });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 },
     ...(slow ? { recordVideo: { dir: `${evidenceDir}/raw`, size: { width: 1440, height: 1000 } } } : {}),
@@ -78,36 +86,36 @@ for (const [name, engine, options] of [['Chrome', chromium, { channel: 'chrome' 
     assert(await page.getByText(/It does not affect agent decisions/).isVisible());
     const areas = page.locator('main textarea');
     for (let i = 0; i < await areas.count(); i++) await type(areas.nth(i), 'Use a small single-user study tracker with stable IDs and local storage.');
-    await activate(page.getByRole('button', { name: 'Generate requirements', exact: true }));
+    await activate(page.getByRole('button', { name: 'Continue to requirements', exact: true }));
     await page.getByRole('heading', { name: 'Requirements summary', exact: true }).waitFor();
-    await activate(page.getByRole('button', { name: 'Edit', exact: true }).first());
+    await activate(page.getByRole('button', { name: /^Edit requirement/ }).first());
     await type(page.getByRole('textbox', { name: 'Requirement text' }), 'Save *course* and [minutes] with validation and stable IDs');
     await activate(page.getByRole('button', { name: 'Save requirement', exact: true }));
     if (slow) note('Requirements: edit, correct and approve using Tab and Enter');
-    const approvals = page.getByRole('button', { name: 'Approve', exact: true });
+    const approvals = page.getByRole('button', { name: /^Approve requirement \d+/ });
     for (let i = 0; i < await approvals.count(); i++) await activate(approvals.nth(i));
     await activate(page.getByRole('button', { name: /Approve requirements/ }));
-    await activate(page.getByRole('button', { name: 'Edit task', exact: true }).first());
+    await activate(page.getByRole('button', { name: /^Edit task/ }).first());
     await type(page.getByRole('textbox', { name: 'Task title', exact: true }), 'Store [sessions] with stable IDs');
     await activate(page.getByRole('button', { name: 'Save task', exact: true }));
     await activate(page.getByRole('button', { name: 'Previous step', exact: true }));
     await activate(page.getByRole('button', { name: 'Continue to task plan', exact: true }));
     await activate(page.getByRole('button', { name: 'Approve plan & run agents', exact: true }));
+    // The run stays on the board; the user opens review explicitly.
+    await page.getByRole('heading', { name: 'Agent assignment board', exact: true }).waitFor({ timeout: 60000 });
+    await activate(page.getByRole('button', { name: /Review collected outputs/ }));
     await page.getByRole('heading', { name: 'Review outputs', exact: true }).waitFor({ timeout: 60000 });
-    await activate(page.getByRole('button', { name: 'Previous step', exact: true }));
-    await page.getByRole('heading', { name: 'Agent assignment board', exact: true }).waitFor();
-    await activate(page.getByRole('button', { name: 'Open review', exact: true }));
     if (slow) note('Review: inspect results, approve individual outputs and request a revision');
-    const outputs = page.getByRole('button', { name: 'Approve output', exact: true });
+    const outputs = page.getByRole('button', { name: /^Approve output/ });
     for (let i = 1; i < await outputs.count(); i++) await activate(outputs.nth(i));
-    await activate(page.getByRole('button', { name: 'Request revision', exact: true }).first());
+    await activate(page.getByRole('button', { name: /^Request revision/ }).first());
     await activate(page.getByRole('button', { name: 'Continue to feedback', exact: true }));
     await type(page.getByRole('textbox', { name: 'Feedback for the Manager Agent' }), 'Add error states for missing course and invalid minutes');
     await activate(page.getByRole('button', { name: 'Apply feedback', exact: true }));
     await page.getByRole('heading', { name: 'Review outputs', exact: true }).waitFor();
     for (let i = 0; i < await outputs.count(); i++) await activate(outputs.nth(i));
     await activate(page.getByRole('button', { name: 'Continue to feedback', exact: true }));
-    await activate(page.getByRole('button', { name: 'Skip revisions & finalize approved plan', exact: true }));
+    await activate(page.getByRole('button', { name: /^Finalize approved plan/ }));
     await page.getByRole('heading', { name: 'Final project plan', exact: true }).waitFor();
     if (slow) note('Refresh recovery: corrected requirements, task edits and revisions must survive');
     await page.reload();
@@ -143,6 +151,6 @@ for (const [name, engine, options] of [['Chrome', chromium, { channel: 'chrome' 
     await browser.close();
   }
 }
-await fs.mkdir('docs/iteration3-evidence', { recursive: true });
-await fs.writeFile(slow ? `${evidenceDir}/results.json` : 'docs/iteration3-evidence/peer-review-browser-results.json', JSON.stringify(results, null, 2));
+await fs.mkdir(artifacts, { recursive: true });
+await fs.writeFile(slow ? `${evidenceDir}/results.json` : `${artifacts}/peer-review-browser-results.json`, JSON.stringify(results, null, 2));
 console.log(JSON.stringify(results, null, 2));

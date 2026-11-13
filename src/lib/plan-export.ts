@@ -1,43 +1,74 @@
 import { AGENT_LABELS } from "./agents";
-import { outputsReady, taskLabel, type WorkflowState } from "./workflow";
+import {
+  acceptanceOf, bullets, dependencyLabels, draftNote, exportDate, isComplete, isHumanEdited, modeLabel, modelLabel, modelsUsed,
+  orderedTasks, outputModel, outputFor, planSlug, planningMinutes, requirementRef, resolveMode, reviewFindings, scrubIds, shortTitle, taskTitle,
+  usefulAssumptions, usageOf, NOT_RECORDED, type ExportOptions,
+} from "./export-common";
+import { downloadFile } from "./export-download";
+import { formatUsefulness } from "./metrics";
+import type { WorkflowState } from "./workflow";
 
-export function planMarkdown(s: WorkflowState): string {
-  if (!outputsReady(s) || s.project.status !== "complete") throw new Error("Complete human approval before exporting the final plan.");
-  const approved = s.outputs.filter((o) => o.approved === "approved");
+export const planFilename = (s: WorkflowState): string => `${planSlug(s)}-plan.md`;
+
+/** One-line provenance used by Markdown, README and HTML: mode, model, date, measured time. */
+export function provenanceLines(s: WorkflowState, opts?: ExportOptions): string[] {
+  const mode = resolveMode(s, opts);
+  const models = modelsUsed(s);
+  const usage = usageOf(s);
+  const tokens = usage && (usage.promptTokens !== null || usage.completionTokens !== null) ? ` · ${(usage.promptTokens ?? 0) + (usage.completionTokens ?? 0)} tokens` : "";
+  const lines = [`Mode: ${modeLabel(mode)}`];
+  if (mode === "live") lines.push(`AI provider / model: ${models.length ? models.join("; ") : NOT_RECORDED}${usage?.requests != null ? ` (${usage.requests} requests${tokens})` : ""}`);
+  else lines.push("AI provider / model: none (prepared demo responses; no AI model was called)");
+  lines.push(`Exported: ${exportDate(opts)}`);
+  lines.push(`Planning time (measured): ${planningMinutes(s, opts)} minutes${isComplete(s) ? " from project start to final plan" : " so far"}`);
+  return lines;
+}
+
+export function planMarkdown(s: WorkflowState, opts?: ExportOptions): string {
+  const complete = isComplete(s);
+  const draft = draftNote(s);
+  const title = shortTitle(s.project);
+  const clean = (value: string) => scrubIds(value, s);
+  const tasks = orderedTasks(s);
+  const requirements = s.requirements.map((r, i) => ({ r, ref: requirementRef(i) })).filter(({ r }) => (complete ? r.approvalStatus === "approved" : r.approvalStatus !== "rejected"));
+  const outputs = tasks.map((t) => ({ t, o: outputFor(s, t) })).filter((x): x is { t: typeof tasks[number]; o: NonNullable<ReturnType<typeof outputFor>> } => Boolean(x.o) && (!complete || x.o!.approved === "approved"));
+
   const sections = [
-    `# ${s.project.title}`,
-    "> ProjectPilot AI · Planning output. No application code is deployed. Time savings are estimates, not measured productivity.",
-    "## Project summary", s.project.description, `Target users: ${s.project.targetUser}`,
-    "## Approved requirements", s.requirements.filter((r) => r.approvalStatus === "approved").map((r) => `- ${r.text}`).join("\n"),
-    "## Ordered task plan", s.tasks.map((t) => {
-      const dependencies = t.dependencies.map((id) => s.tasks.find((x) => x.id === id)).filter((t) => t !== undefined);
-      return `### ${taskLabel(t)}\n\n${t.description}\n\n- Task ID: ${t.id}\n- Agent: ${AGENT_LABELS[t.ownerAgent]}\n- Depends on: ${dependencies.map(taskLabel).join("; ") || "No prerequisites"}\n- Expected output: ${t.expectedOutput}\n- State: ${t.state}`;
-    }).join("\n\n"),
-    "## Approved agent outputs", approved.map((o) => {
-      const task = s.tasks.find((t) => t.id === o.taskId)!;
-      const review = s.reviews.find((r) => r.outputId === o.id);
-      return `### ${taskLabel(task)}\n\n${o.summary}\n\n- Human approval: Approved\n- Assumptions: ${o.assumptions.join("; ")}\n- Blockers: ${o.blockers.join("; ") || "None"}\n- Confidence: ${Math.round(o.confidence * 100)}%\n- Next steps: ${o.nextSteps.join("; ")}\n- Review findings: ${review ? [...review.missingItems, ...review.conflicts, ...review.suggestions].join("; ") || "No findings" : "No review recorded"}`;
-    }).join("\n\n"),
+    `# ${title}${draft ? ` ${draft}` : ""}`,
+    "> ProjectPilot AI · Planning output. No application code is deployed. Planning time is the measured wall-clock time of this session, not a productivity claim.",
+    ...(draft ? [`> **Draft export ${draft}.** This plan was exported before every approval checkpoint was complete; unapproved content is labelled.`] : []),
+    "## Provenance", bullets(provenanceLines(s, opts)),
+    "## Project summary", clean(s.project.description) || "No idea entered yet.", `Target users: ${s.project.targetUser || "not set"}`,
+    complete ? "## Approved requirements" : "## Requirements", requirements.length ? requirements.map(({ r, ref }) => {
+      const criteria = acceptanceOf(r);
+      return `- **${ref}** [${r.priority}]${complete ? "" : ` (${r.approvalStatus})`} ${clean(r.text)}${criteria.length ? `\n${criteria.map((c) => `  - Acceptance: ${clean(c)}`).join("\n")}` : ""}`;
+    }).join("\n") : "None yet.",
+    "## Ordered task plan", tasks.length ? tasks.map((t) => {
+      const deps = dependencyLabels(s, t);
+      return `### ${taskTitle(t)}\n\n${clean(t.description)}\n\n- Agent: ${AGENT_LABELS[t.ownerAgent]}\n- Depends on: ${deps.join("; ") || "No prerequisites"}\n- Expected output: ${clean(t.expectedOutput)}${t.constraints ? `\n- Constraints: ${clean(t.constraints)}` : ""}\n- State: ${t.state}`;
+    }).join("\n\n") : "No tasks yet.",
+    complete ? "## Approved agent outputs" : "## Agent outputs", outputs.length ? outputs.map(({ t, o }) => {
+      const findings = reviewFindings(s, o);
+      const model = outputModel(s, o);
+      const assumptions = usefulAssumptions(o);
+      return `### ${taskTitle(t)}\n\n${clean(o.summary)}\n\n- Human approval: ${o.approved === "approved" ? "Approved" : o.approved === "rejected" ? "Rejected" : "Pending"}\n- Edited by a human: ${isHumanEdited(s, o) ? "Yes" : "No"}\n- Produced by: ${model ? modelLabel(model) : resolveMode(s, opts) === "demo" ? "prepared demo response" : NOT_RECORDED}${assumptions.length ? `\n- Assumptions: ${assumptions.map(clean).join("; ")}` : ""}\n- Blockers: ${o.blockers.map(clean).join("; ") || "None"}\n- Confidence: ${Math.round(o.confidence * 100)}%\n- Next steps: ${o.nextSteps.map(clean).join("; ") || "None"}\n- Review findings: ${findings ? findings.map(clean).join("; ") || "No findings" : "No review recorded"}`;
+    }).join("\n\n") : "No agent outputs yet.",
   ];
-  for (const [role, title] of [["testing", "Testing / acceptance information"], ["documentation", "Documentation information"]] as const) {
-    const items = approved.filter((o) => s.tasks.find((t) => t.id === o.taskId)?.ownerAgent === role);
-    if (items.length) sections.push(`## ${title}`, items.map((o) => o.summary).join("\n\n"));
+  for (const [role, heading] of [["testing", "Testing / acceptance information"], ["documentation", "Documentation information"]] as const) {
+    const items = outputs.filter(({ t }) => t.ownerAgent === role);
+    if (items.length) sections.push(`## ${heading}`, items.map(({ o }) => clean(o.summary)).join("\n\n"));
   }
   sections.push("## Evaluation metrics",
-    `- Requirement acceptance in this session: ${s.metrics.userAcceptanceRate}%\n- Completed tasks: ${s.metrics.taskCompletionRate}%\n- Review issue rate: ${s.metrics.conflictRate}%\n- Revision rounds: ${s.metrics.numberOfRevisions}\n- User usefulness rating: ${s.metrics.usefulnessScore}/10\n- Estimated planning time saved: ${s.metrics.planningTimeSavedMinutes} minutes (not measured)`);
-  if (s.feedbackItems.length) sections.push("## Revision history", s.feedbackItems.map((f) => `- ${f.userRequest} (${f.revisionStatus}; tasks: ${f.affectedTasks.join(", ")})`).join("\n"));
+    `- Requirement acceptance in this session: ${s.metrics.userAcceptanceRate}%\n- Completed tasks: ${s.metrics.taskCompletionRate}%\n- Review issue rate: ${s.metrics.conflictRate}%\n- Revision rounds: ${s.metrics.numberOfRevisions}\n- User usefulness rating: ${formatUsefulness(s.metrics.usefulnessScore)}\n- Planning time (measured): ${planningMinutes(s, opts)} minutes ${complete ? "from project start to final plan" : "so far"}`);
+  if (s.feedbackItems.length) {
+    sections.push("## Revision history", s.feedbackItems.map((f) => {
+      const labels = f.affectedTasks.map((id) => s.tasks.find((t) => t.id === id)).filter((t): t is NonNullable<typeof t> => Boolean(t)).map((t) => taskTitle(t).split(" · ")[0]);
+      return `- ${clean(f.userRequest)} (${f.revisionStatus}; tasks: ${labels.join(", ") || "none"})`;
+    }).join("\n"));
+  }
   return sections.join("\n\n") + "\n";
 }
 
-export function downloadPlan(s: WorkflowState): void {
-  const blob = new Blob([planMarkdown(s)], { type: "text/markdown;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  const filename = s.project.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 70) || "projectpilot";
-  link.download = `${filename}-plan.md`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+export function downloadPlan(s: WorkflowState, opts?: ExportOptions): void {
+  downloadFile(planFilename(s), planMarkdown(s, opts), "text/markdown;charset=utf-8");
 }

@@ -1,5 +1,7 @@
 // Browser recovery check against the unchanged manager handler's real 55s deadline.
 // Only the upstream provider is stubbed. This makes no billable model request.
+// Target: PROJECTPILOT_URL (default http://localhost:3314); the server's LIVE_ACCESS_CODE must
+// match .env.local. PLAYWRIGHT_CHANNEL=chrome opts into installed Chrome. Output: artifacts/full-timeout/.
 import { chromium } from 'playwright';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
@@ -9,7 +11,8 @@ import assert from 'node:assert/strict';
 const require = createRequire(import.meta.url);
 require('@next/env').loadEnvConfig(process.cwd());
 const ts = require('typescript');
-const base = process.env.PROJECTPILOT_URL || 'https://projectpilot-ai-cse3311.vercel.app';
+const base = process.env.PROJECTPILOT_URL || 'http://localhost:3314';
+const outDir = `${process.env.PROJECTPILOT_ARTIFACTS_DIR || 'artifacts'}/full-timeout`;
 const cache = new Map();
 function load(filename) {
   if (cache.has(filename)) return cache.get(filename).exports;
@@ -20,7 +23,7 @@ function load(filename) {
   return loadedModule.exports;
 }
 const { POST } = load(path.resolve('src/app/api/manager/route.ts'));
-const browser = await chromium.launch({ headless: true, channel: 'chrome' });
+const browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_CHANNEL ? { channel: process.env.PLAYWRIGHT_CHANNEL } : {}) });
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 const originalFetch = globalThis.fetch, originalKey = process.env.OPENAI_API_KEY;
 const brief = 'A study tracker that saves course names and positive study minutes locally';
@@ -57,8 +60,8 @@ try {
   assert(await page.getByRole('button', { name: 'Start clarifying questions', exact: true }).isEnabled());
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('projectpilot-v2')));
   assert.equal(saved.state.draftBrief.idea, brief);
-  await fs.mkdir('docs/iteration3-evidence/full-timeout', { recursive: true });
-  await page.screenshot({ path: 'docs/iteration3-evidence/full-timeout/error-preserved-input.png' });
+  await fs.mkdir(outDir, { recursive: true });
+  await page.screenshot({ path: `${outDir}/error-preserved-input.png` });
   await page.reload();
   await page.getByRole('textbox', { name: 'Project idea', exact: true }).waitFor();
   assert.equal(await page.getByRole('textbox', { name: 'Project idea', exact: true }).inputValue(), brief);
@@ -69,7 +72,7 @@ try {
   assert(await page.getByRole('textbox', { name: 'Which study session fields should be stored?', exact: true }).isVisible());
   assert.equal(upstreamCalls, 2);
   const result = { result: 'passed', testType: 'automated browser test with actual local manager handler and stub upstream', deadlineScaled: false, providerDelayMs: 60000, handlerDeadlineMs: 55000, observedSeconds: Number(elapsedSeconds.toFixed(2)), abortObserved, inputPreserved: true, refreshPreserved: true, retrySucceeded: true, billableRequests: 0, recordedAt: new Date().toISOString() };
-  await fs.writeFile('docs/iteration3-evidence/full-timeout/results.json', JSON.stringify(result, null, 2));
+  await fs.writeFile(`${outDir}/results.json`, JSON.stringify(result, null, 2));
   console.log(JSON.stringify(result, null, 2));
 } finally {
   globalThis.fetch = originalFetch;

@@ -1,11 +1,16 @@
+// LIVE RECORDING: consumes real OpenRouter quota (or OpenAI credit); manual only, never in CI.
+// Drives the full Live API flow against PROJECTPILOT_URL (default http://localhost:3314) and
+// records video, screenshots and the downloaded plan under artifacts/iteration3-recording/.
+// PLAYWRIGHT_CHANNEL=chrome opts into installed Chrome; LIVE_ACCESS_CODE comes from .env.local.
 import { chromium } from 'playwright';
 import { createRequire } from 'node:module';
 createRequire(import.meta.url)('@next/env').loadEnvConfig(process.cwd());
 import fs from 'node:fs/promises';
 import path from 'node:path';
-const root=process.env.PROJECTPILOT_RECORDING_DIR || path.resolve('docs/iteration3-recording');
+const base=process.env.PROJECTPILOT_URL || 'http://localhost:3314';
+const root=process.env.PROJECTPILOT_RECORDING_DIR || path.resolve(process.env.PROJECTPILOT_ARTIFACTS_DIR || 'artifacts','iteration3-recording');
 await Promise.all(['assets','output','build/video'].map(dir=>fs.mkdir(path.join(root,dir),{recursive:true})));
-const browser=await chromium.launch({headless:true,channel:'chrome'});
+const browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHANNEL?{channel:process.env.PLAYWRIGHT_CHANNEL}:{})});
 const context=await browser.newContext({viewport:{width:1440,height:1000},recordVideo:{dir:root+'/build/video',size:{width:1440,height:1000}}});
 const page=await context.newPage(); const started=Date.now(); const events=[],responses=[];
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
@@ -14,7 +19,7 @@ async function caption(text){events.push({seconds:(Date.now()-started)/1000,text
 async function shot(name){await page.evaluate(()=>{const el=document.getElementById('recording-caption');if(el)el.style.visibility='hidden';});await page.screenshot({path:`${root}/assets/${name}.png`});await page.evaluate(()=>{const el=document.getElementById('recording-caption');if(el)el.style.visibility='visible';});}
 async function heading(name){await page.getByRole('heading',{name,exact:true}).waitFor({timeout:180000});}
 try{
- await page.goto('https://projectpilot-ai-cse3311.vercel.app',{waitUntil:'networkidle'});
+ await page.goto(base,{waitUntil:'networkidle'});
  await page.getByRole('combobox',{name:'Agent mode'}).selectOption('live');
  await page.getByRole('heading',{name:'Live API access and data sharing',exact:true}).waitFor();
  await caption('Live API requires private reviewer access and consent before sending project context to OpenAI.');
@@ -31,7 +36,7 @@ try{
  await caption('The live manager asks questions before drafting requirements.');await pause(3500);
  const answers=page.locator('main textarea');
  for(let i=0;i<await answers.count();i++){await answers.nth(i).fill('Single student, desktop and mobile browser. Vanilla HTML/CSS/JavaScript. Store sessions locally with a stable ID, course and positive integer minutes. Show total, add/delete, validation and empty state. No login, sync, deployment, or repository import. Keep four short specialist tasks and outputs under 250 words.');}
- await page.getByRole('button',{name:/Generate requirements/}).click();await heading('Requirements summary');await shot('03-requirements');
+ await page.getByRole('button',{name:/Continue to requirements/}).click();await heading('Requirements summary');await shot('03-requirements');
  await caption('Every requirement needs human approval before the manager creates the task plan.');await pause(5000);
  const approvals=page.getByRole('button',{name:'Approve',exact:true});for(let i=0;i<await approvals.count();i++){await approvals.nth(i).click();await pause(350);}
  await page.getByRole('button',{name:/Approve requirements/}).click();await heading('Task breakdown');await shot('04-task-plan');

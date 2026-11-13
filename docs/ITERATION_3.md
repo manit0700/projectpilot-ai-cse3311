@@ -1,6 +1,6 @@
 # Iteration 3 — Live specialist deliverables and feedback
 
-Implemented November 1, 2026. This iteration extends the Iteration 2 live manager with live specialist execution, bounded retries, cross-output review and real revisions.
+Implemented November 1, 2026 on OpenAI; provider wording and retry behaviour updated November 13 to match the current code (Gemini, OpenRouter and OpenAI are all supported; see [CURRENT_STATUS.md](CURRENT_STATUS.md)). Sections headed with a date record what was verified on that date. This iteration extends the Iteration 2 live manager with live specialist execution, bounded retries, cross-output review and real revisions.
 
 ## Supported scope
 
@@ -15,11 +15,13 @@ From the repository root, use Node.js 22 and npm:
 ```sh
 npm ci
 cp .env.example .env.local
-# Set OPENAI_API_KEY in .env.local; optionally set OPENAI_MODEL.
-npm run dev -- --port 3313
+# Optional for Live API: set AI_PROVIDER and one key in .env.local, for example
+#   AI_PROVIDER=gemini and GEMINI_API_KEY=... (free key from https://aistudio.google.com/apikey)
+# OpenRouter (free models) and OpenAI (paid) are alternatives; see .env.example.
+npm run dev -- --port 3314
 ```
 
-Open http://localhost:3313. Select **Agent mode → Live API** before creating a project. The manager, specialist and review requests all use the server-side key. Demo mode remains available without a key and uses prepared responses. The mode cannot change midway through a saved project; reset before starting in another mode.
+Open http://localhost:3314. Select **Agent mode → Live API** before creating a project. The manager, specialist and review requests all use the server-side key of the configured provider. Demo mode remains available without a key and uses prepared responses. The mode cannot change midway through a saved project; reset before starting in another mode.
 
 ```sh
 node --test tests/workflow.test.cjs
@@ -30,13 +32,13 @@ npm run build
 Optional verification against a running server:
 
 ```sh
-# Uses local Google Chrome and the project's installed Playwright package.
-node scripts/verify-iteration3-browser.mjs
-# Makes three billable live API requests; only run intentionally.
+# Chrome and WebKit browser checks of the demo workflow, approvals, export and refresh recovery.
+PROJECTPILOT_URL=http://localhost:3314 node scripts/verify-peer-review.mjs
+# Makes live API requests that spend quota (or money, on OpenAI) on the configured provider; only run intentionally.
 node scripts/verify-iteration3-live.mjs
 ```
 
-Set PROJECTPILOT_URL if the server uses another address. Browser smoke checks use a fresh isolated browser context and do not clear your normal browser's saved project.
+Set PROJECTPILOT_URL if the server uses another address (browser scripts default to http://localhost:3314). The earlier `verify-iteration3-browser.mjs` smoke script is superseded by `verify-peer-review.mjs`. Browser smoke checks use a fresh isolated browser context and do not clear your normal browser's saved project.
 
 ## Behavior and design
 
@@ -45,7 +47,7 @@ Set PROJECTPILOT_URL if the server uses another address. Browser smoke checks us
 3. Each specialist produces summary/deliverable text, assumptions, blockers, confidence and next steps. Generated code can be included as Markdown code blocks with filenames. Application-generated IDs and pending approval prevent a model from approving its own output.
 4. Production live calls require a private reviewer access code and explicit data-sharing consent. Signed HttpOnly cookies expire after eight hours. Demo remains public.
 
-Each server call retries a timeout, malformed response or transient server failure once. Authentication and rate/billing failures return directly. After failure, the board preserves completed unrelated work and offers **Retry task**. Prerequisites remain blocked until the failed task succeeds.
+Retry behaviour differs by route. As of the November 13 code, the specialist route (task execution and review) makes up to two attempts inside one shared 250 second budget, each attempt at most 120 seconds (route limit 300 seconds on Vercel), retrying a timeout, malformed response or transient 5xx failure once; quota, authentication and invalid-request errors are not retried automatically. The manager route (answers, requirements, tasks) makes one request chain inside a 52 second budget (route limit 60 seconds) and does not retry the whole request; the user retries from the screen. Within one request the server may move to the next Gemini model, or to a provider listed in `AI_FALLBACK`, after a quota or capacity failure (src/lib/provider-chain.ts). A Stop button cancels a run. Authentication and rate/billing failures return directly on every route. After failure, the board preserves completed unrelated work and offers **Retry task**. Prerequisites remain blocked until the failed task succeeds.
 5. When all tasks complete, the live review agent checks the actual outputs together against their contracts and requirements. A validated review must include exactly one entry per output. Missing reviews prevent final export. **Retry review** reruns review without rerunning completed specialists. Findings stay visible during human approval. Unresolved conflicts block approval and final export.
 6. Feedback regenerates selected outputs and their transitive dependents in dependency order. It sends the original feedback and previous deliverable to each affected specialist. Unrelated approvals are preserved; revised outputs require approval again. An open feedback record survives failures so manual retry can reuse the request.
 7. Editing an approved requirement reopens the existing task plan and invalidates outputs. Review/edit the task contracts before approving again. Requirement changes do not automatically invent new tasks; the preserved plan still needs human checking.
@@ -67,7 +69,7 @@ Review text preserves whitespace/code formatting, and the shared small-text size
 
 ## Key code
 
-- src/app/api/specialist/route.ts: origin/body/approval/dependency validation; server-side Responses API calls; two-attempt bound.
+- src/app/api/specialist/route.ts: origin/body/approval/dependency validation; server-side provider calls through src/lib/ai-service.ts; two-attempt bound.
 - src/lib/specialist-schema.ts: output/review schemas and independent runtime validation.
 - src/lib/specialist-client.ts: browser requests without credentials, response validation.
 - src/lib/store.tsx: scheduling, state recovery, dependency-aware feedback and human gates.
@@ -87,11 +89,11 @@ Review text preserves whitespace/code formatting, and the shared small-text size
 
 ## Sources
 
-The integration uses the OpenAI Responses API strict JSON-schema output format described in [OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs). Local validation additionally rejects malformed or mismatched responses. Route handlers follow the installed Next.js route-handler documentation in node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/route.md.
+Iteration 3 shipped on the OpenAI Responses API with the strict JSON-schema output format described in [OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs). The current code sends the same schemas through `src/lib/ai-service.ts` to Google Gemini or free-only OpenRouter as well (with schema adjustments for Gemini), tries Gemini models in a fallback list, and can fall back to other configured free providers. In every case local validation rejects malformed or mismatched responses. Route handlers follow the installed Next.js route-handler documentation in node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/route.md.
 
 Professor feedback source: Christoph Csallner, Iteration 2 comments, October 26, 2026, supplied by the team on November 1. Implemented behavior addresses that feedback; no external student interviews or measured productivity gains are claimed.
 
-## Verification results — November 1, 2026
+## Verification results — November 1, 2026 (historical; OpenAI build)
 
 - 21 Node tests passed, including all 11 earlier regression tests and specialist/review/live-workflow and peer-review regression tests. Live-path tests inject service responses; they do not prove model-generated code works.
 - Production build and TypeScript compilation passed.
@@ -115,3 +117,7 @@ Finding 7 remains open: target-student interviews require actual participants. P
 ## Additional verification November 1
 
 Slow keyboard simulation passed in Chrome and WebKit with 562 typed characters and nine deliberate spelling corrections per browser. A separate browser integration test used the actual 55-second manager timeout without scaling; the observed 55.23-second failure preserved the draft through refresh and allowed retry. Only the provider was stubbed, so it did not incur model charges or simulate student participation. See docs/iteration3/Keyboard_Test_Report.md for scope and limitations, and Student_Feedback_Session_Kit.md for real sessions that remain outstanding.
+
+## Related documents
+
+Current state, open items and the freeze plan: [CURRENT_STATUS.md](CURRENT_STATUS.md). Iteration 2 setup notes and the pre-Iteration 3 plans are archived in [archive/](archive/). The Website Studio execution step added after this iteration is described in [WEBSITE_STUDIO.md](WEBSITE_STUDIO.md).
