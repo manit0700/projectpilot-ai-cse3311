@@ -1,5 +1,6 @@
 "use client";
 
+import { StudioHandoffButton } from "@/components/studio-handoff";
 import { ApprovalBar } from "@/components/shell";
 import { AGENT_LABELS } from "@/lib/agents";
 import { useProjectStore } from "@/lib/store";
@@ -330,6 +331,7 @@ export function FinalScreen() {
         deployment.
       </p>
 
+      <StudioHandoffButton />
       <button type="button" className="mt-5 rounded-xl bg-teal-700 px-5 py-3 font-semibold text-white" onClick={() => downloadPlan(store)}>Download Markdown</button>
       <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="text-lg font-semibold text-slate-900">Project summary</h2>

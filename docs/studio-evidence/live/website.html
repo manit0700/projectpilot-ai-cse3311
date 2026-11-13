@@ -1,0 +1,157 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ProjectPilot website</title><style>:root {
+  --bg: hsl(210 20% 98%);
+  --accent: hsl(42 70% 55%);
+  --text: hsl(222 47% 11%);
+  --muted: hsl(210 10% 45%);
+  --error: hsl(0 84% 55%);
+  --border: hsl(210 15% 90%);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  font-size: clamp(1rem, 2vw, 1.125rem);
+  line-height: 1.5;
+  padding: 1rem;
+}
+h1 { font-size: clamp(1.25rem, 3vw, 1.5rem); margin-bottom: 1rem; }
+form { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem; }
+@media (min-width: 640px) {
+  form { flex-direction: row; align-items: end; }
+}
+.label-group { display: flex; flex-direction: column; flex: 1; }
+label { display: block; margin-bottom: 0.25rem; font-weight: 600; }
+input[type="text"], input[type="number"] {
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 1rem;
+  background: #fff;
+  color: var(--text);
+}
+input:focus { outline: 4px solid var(--accent); border-color: var(--accent); }
+input.invalid { border-color: var(--error); outline: 4px solid var(--error); }
+button {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+button:hover { filter: brightness(0.95); }
+button:focus { outline: 4px solid var(--accent); }
+.delete-btn { background: none; color: var(--muted); border: none; cursor: pointer; font-size: 1.2rem; padding: 0.25rem 0.5rem; }
+.delete-btn:hover { color: var(--error); }
+#session-list { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem; }
+.session-row { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border: 1px solid var(--border); border-radius: 4px; background: #fff; }
+.session-info { display: flex; gap: 1rem; }
+.empty-state { text-align: center; color: var(--muted); margin: 2rem 0; font-style: italic; }
+#total-display { font-weight: bold; font-size: 1.1rem; }
+.error-msg { color: var(--error); font-size: 0.9rem; margin-top: 0.25rem; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }</style></head><body><main>
+  <h1>Study Session Tracker</h1>
+  <form id="session-form" autocomplete="off">
+    <div class="label-group">
+      <label for="course-name">Course name</label>
+      <input type="text" id="course-name" name="course" placeholder="e.g. Math 101" required>
+    </div>
+    <div class="label-group">
+      <label for="study-minutes">Study minutes</label>
+      <input type="number" id="study-minutes" name="minutes" min="1" step="1" placeholder="e.g. 45" required>
+      <div id="minutes-error" class="error-msg sr-only" aria-live="polite"></div>
+    </div>
+    <button type="submit">Add session</button>
+  </form>
+  <div id="session-list" aria-live="polite"></div>
+  <div id="empty-state" class="empty-state" aria-live="polite">No study sessions recorded.</div>
+  <p id="total-display" role="status" aria-live="polite">Total study minutes: 0</p>
+</main><script>const form = document.getElementById('session-form');
+const list = document.getElementById('session-list');
+const empty = document.getElementById('empty-state');
+const total = document.getElementById('total-display');
+const minutesInput = document.getElementById('study-minutes');
+const errorBox = document.getElementById('minutes-error');
+let sessions = [];
+
+function render() {
+  list.innerHTML = '';
+  empty.style.display = sessions.length === 0 ? 'block' : 'none';
+  sessions.forEach((s, i) => {
+    const row = document.createElement('div');
+    row.className = 'session-row';
+    const info = document.createElement('div');
+    info.className = 'session-info';
+    const courseSpan = document.createElement('span');
+    const strong = document.createElement('strong');
+    strong.textContent = s.course;
+    courseSpan.appendChild(strong);
+    const minSpan = document.createElement('span');
+    minSpan.textContent = s.minutes + ' min';
+    info.appendChild(courseSpan);
+    info.appendChild(minSpan);
+    row.appendChild(info);
+    const delBtn = document.createElement('button');
+    delBtn.className = 'delete-btn';
+    delBtn.textContent = '×';
+    delBtn.setAttribute('aria-label', 'Remove ' + s.course + ' study session');
+    delBtn.dataset.index = i;
+    row.appendChild(delBtn);
+    list.appendChild(row);
+  });
+  total.textContent = 'Total study minutes: ' + sessions.reduce((sum, s) => sum + s.minutes, 0);
+}
+
+function validateMinutes(val) {
+  const num = Number(val);
+  return Number.isInteger(num) && num >= 1;
+}
+
+function showError(msg) {
+  minutesInput.classList.add('invalid');
+  minutesInput.setAttribute('aria-invalid', 'true');
+  minutesInput.setAttribute('aria-describedby', 'minutes-error');
+  errorBox.textContent = msg;
+  errorBox.classList.remove('sr-only');
+}
+
+function clearError() {
+  minutesInput.classList.remove('invalid');
+  minutesInput.removeAttribute('aria-invalid');
+  minutesInput.removeAttribute('aria-describedby');
+  errorBox.classList.add('sr-only');
+}
+
+form.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const course = document.getElementById('course-name').value.trim();
+  const minutes = minutesInput.value.trim();
+  if (!course) {
+    document.getElementById('course-name').focus();
+    return;
+  }
+  if (!validateMinutes(minutes)) {
+    showError('Please enter a whole number of minutes ≥ 1');
+    minutesInput.focus();
+    return;
+  }
+  clearError();
+  sessions.push({ course, minutes: Number(minutes) });
+  minutesInput.value = '';
+  render();
+  minutesInput.focus();
+});
+
+list.addEventListener('click', (e) => {
+  if (e.target.classList.contains('delete-btn')) {
+    const idx = Number(e.target.dataset.index);
+    sessions.splice(idx, 1);
+    render();
+    minutesInput.focus();
+  }
+});
+
+render();</script></body></html>

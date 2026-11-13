@@ -34,3 +34,9 @@ To redeploy authorized changes: `vercel deploy --prod --scope manit-dankharas-pr
 ## Peer review follow-up
 
 21 automated tests pass. Keyboard-only planning, editing, review, revision, restore and export passed in Chrome and WebKit. Production live access now requires LIVE_ACCESS_CODE and consent. Conflict findings block approval/export. Target-student interviews remain open.
+
+## Website Studio — November 12, 2026
+
+Implemented locally: free-only OpenRouter provider support for manager/specialists/review; `/studio` planning/build/review loop; HTML/CSS/JS and simple page-text editing; sandboxed desktop/mobile preview; versions, autosave, export, and GitHub MCP import/draft PR support. See [WEBSITE_STUDIO.md](WEBSITE_STUDIO.md).
+
+30 automated tests, lint, production build, and the Chrome planning-to-Studio handoff/live-stream UI workflow pass. Real OpenRouter planning, website generation, source review and developer revision passed. The real revised study-tracker example passed browser interaction checks. Agent status cards and public streamed responses are visible; confirmed planning context carries into Studio. Real GitHub MCP connection and repository read passed; no real GitHub write or production deployment has been performed for this feature. Existing user-feedback and course-evaluation work remains outstanding.

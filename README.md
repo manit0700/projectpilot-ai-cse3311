@@ -78,3 +78,7 @@ Live API mode now runs specialists and cross-output review as well as the manage
 See [Iteration 3 setup, screen flow, limitations and professor-feedback mapping](docs/ITERATION_3.md).
 
 Production live requests require LIVE_ACCESS_CODE on the server. Share this access code privately with reviewers. Visitors must unlock Live API and accept the data-sharing notice; Demo mode remains public.
+
+## Website Studio (November 12)
+
+Open `/studio` or choose **Build a website** in the planning header. Includes free-only OpenRouter agents, editable plans, bounded developer/reviewer handoffs, code and page-text editing, sandboxed preview, browser-local versions, HTML export, and GitHub MCP import/draft pull requests. See [setup and verification](docs/WEBSITE_STUDIO.md).

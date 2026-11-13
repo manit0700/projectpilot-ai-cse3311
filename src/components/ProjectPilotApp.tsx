@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import {
   FeedbackScreen,
@@ -49,6 +50,16 @@ function ScreenRouter() {
 function AppShell() {
   const { reset, currentStep, busy, workflowNotice, managerMode, setManagerMode, savedStatus, hydrated, project } = useProjectStore();
   const [liveReady, setLiveReady] = useState(false);
+  const providerChecked = useRef(false);
+  useEffect(() => {
+    if (!hydrated || project.id || providerChecked.current) return;
+    providerChecked.current = true;
+    let cancelled = false;
+    fetch('/api/manager').then(r => r.json()).then(config => {
+      if (!cancelled && config.configured && config.provider === 'openrouter') setManagerMode('live');
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [hydrated, project.id, setManagerMode]);
   useEffect(() => {
     if (managerMode !== "live") return;
     let cancelled = false;
@@ -76,6 +87,7 @@ function AppShell() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            <Link href="/studio" className="rounded-xl border border-slate-300 px-4 py-2 font-medium">Website Studio</Link>
             <label className="text-sm font-medium">Agent mode <select aria-label="Agent mode" value={managerMode} disabled={busy || !!project.id || !hydrated} onChange={(e) => setManagerMode(e.target.value as "demo" | "live")} className="ml-2 rounded-lg border border-slate-300 p-2"><option value="demo">Demo</option><option value="live">Live API</option></select></label>
             {managerMode === "live" && <button type="button" disabled={busy} className="underline" onClick={() => setLiveReady(false)}>Live access</button>}
             {currentStep !== "idea" && (

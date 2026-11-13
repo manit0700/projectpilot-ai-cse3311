@@ -1,0 +1,12 @@
+[
+  {
+    "stage": "requirements",
+    "status": 200,
+    "count": 6
+  },
+  {
+    "stage": "tasks",
+    "status": 200,
+    "count": 5
+  }
+]

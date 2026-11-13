@@ -1,0 +1,14 @@
+{
+  "date": "2026-11-13T03:17:46.731Z",
+  "passed": [
+    "add sessions",
+    "sum minutes",
+    "delete session",
+    "reject fractional minutes",
+    "reject whitespace-only course",
+    "render HTML-like input as text",
+    "empty state",
+    "mobile overflow",
+    "no uncaught browser errors"
+  ]
+}

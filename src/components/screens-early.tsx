@@ -1,5 +1,6 @@
 "use client";
 
+import { StudioHandoffButton } from "@/components/studio-handoff";
 import { ApprovalBar } from "@/components/shell";
 import { AGENT_LABELS } from "@/lib/agents";
 import { useProjectStore } from "@/lib/store";
@@ -69,10 +70,10 @@ export function IdeaScreen() {
       </label>
 
       <div className="mt-4 rounded-xl border border-teal-200 bg-teal-50 p-4">
-        <div className="text-sm font-semibold text-teal-950">Guided workflow sample</div>
+        <div className="text-sm font-semibold text-teal-950">Demo sample · prepared responses</div>
         <p className="mt-1 text-sm leading-5 text-teal-900">
-          Use this to present the guided multi-agent workflow: manager planning,
-          specialist task assignment, review, and human approval.
+          This optional sample uses prepared responses. For real agents, select Live API
+          and enter your own project idea above.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <button
@@ -208,7 +209,7 @@ export function TasksScreen() {
     <div className="max-w-4xl">
       <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl text-slate-900">Task breakdown</h1>
       <p className="mt-3 text-base leading-relaxed text-slate-600">
-        Review the task order and dependencies. Your approval starts the assigned agents.
+        Review the task order and dependencies. Confirm the idea for Website Studio, or run the original specialist workflow below.
       </p>
 
       {planApproved && <p className="mt-4 rounded-xl bg-teal-50 p-3 text-sm text-teal-900">This plan has been approved. Viewing it does not rerun agents. To change shared scope, edit a requirement and review the reopened plan.</p>}
@@ -279,6 +280,7 @@ export function TasksScreen() {
         </table>
       </div>
 
+      <StudioHandoffButton disabled={busy || !!editingId} />
       <ApprovalBar
         approveLabel={busy ? "Agents running…" : planApproved ? "Return to agent board" : "Approve plan & run agents"}
         disabled={busy || !!editingId}
