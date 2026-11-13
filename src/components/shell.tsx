@@ -18,33 +18,28 @@ export function WorkflowStepper() {
   const helpId = useId();
 
   const stepList = (
-    <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8">
+    <ol className="relative grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8 lg:gap-1 lg:before:absolute lg:before:left-[6%] lg:before:right-[6%] lg:before:top-5 lg:before:h-px lg:before:bg-violet-300 dark:lg:before:bg-violet-800">
       {WORKFLOW_STEPS.map((step, i) => {
         const done = i < reached && (step.id !== "review" || outputsReady(store)) && (step.id !== "board" || store.tasks.every((t) => t.state === "completed"));
         const current = i === active;
         const available = canNavigate(step.id);
         const status = current ? "Current" : done ? "Completed" : available ? "Available" : "Upcoming";
         return (
-          <li key={step.id} className="min-w-0">
+          <li key={step.id} className="relative z-10 min-w-0">
             <button type="button" aria-current={current ? "step" : undefined}
               aria-label={`${step.label} — ${status}`} disabled={!available || current}
               aria-describedby={!available && !current ? helpId : undefined}
               onClick={() => goTo(step.id)}
-              className={`h-full w-full rounded-xl border p-3 text-left focus-visible:outline-offset-2 disabled:cursor-not-allowed ${
+              className={`flex min-h-11 w-full items-center gap-2 rounded-full px-2 py-1.5 text-left transition focus-visible:outline-offset-2 disabled:cursor-not-allowed lg:justify-center ${
               current
-                ? "border-teal-700 bg-teal-700 text-white shadow-sm"
+                ? "bg-gradient-to-r from-violet-700 to-purple-600 pr-4 text-white shadow-[0_7px_20px_rgba(109,40,217,0.28)]"
                 : done
-                  ? "border-teal-200 bg-teal-50 text-teal-900"
-                  : "border-slate-200 bg-slate-50 text-slate-600"
+                  ? "text-violet-950 hover:bg-violet-100 dark:text-violet-100 dark:hover:bg-violet-950"
+                  : available ? "text-slate-800 hover:bg-white/70 dark:text-slate-200 dark:hover:bg-white/5" : "text-slate-500 dark:text-slate-500"
             }`}
           >
-            <div className="mb-2 flex items-center gap-2 text-xs font-medium">
-              <span aria-hidden="true" className={`flex size-6 shrink-0 items-center justify-center rounded-full ${current ? "bg-black/25" : done ? "bg-teal-100" : "bg-slate-200"}`}>
-                {done ? "✓" : i + 1}
-              </span>
-              <span>{status}</span>
-            </div>
-            <span className="block break-words text-sm font-semibold">{step.label}</span>
+            <span aria-hidden="true" className={`flex size-9 shrink-0 items-center justify-center rounded-full border text-sm font-bold ${current ? "border-white/30 bg-white/15 text-white" : done ? "border-violet-600 bg-violet-100 text-violet-800 dark:border-violet-400 dark:bg-violet-950 dark:text-violet-200" : "border-violet-300 bg-white text-slate-700 dark:border-violet-800 dark:bg-slate-950 dark:text-slate-300"}`}>{i + 1}</span>
+            <span className="block break-words text-sm font-semibold lg:max-w-[6.5rem]">{step.label}</span>
             </button>
           </li>
         );
@@ -53,15 +48,15 @@ export function WorkflowStepper() {
   );
 
   return (
-    <nav aria-label="Project workflow" className="py-2">
-      <div className="flex flex-wrap items-center justify-between gap-2 sm:mb-4">
+    <nav aria-label="Project workflow">
+      <div className="flex flex-wrap items-center justify-between gap-2 sm:mb-3">
         <p className="sr-only text-sm font-semibold text-slate-800 sm:not-sr-only" aria-live="polite">
           Step {active + 1} of {WORKFLOW_STEPS.length} · {WORKFLOW_STEPS[active]?.label}
         </p>
-        <p id={helpId} className={`text-sm text-slate-600 ${busy ? "" : "hidden sm:block"}`}>{busy ? "Assigned agents are working. Navigation pauses until they finish." : "Revisit available steps. Upcoming steps unlock after the current approval."}</p>
+        <p id={helpId} className={`text-sm text-slate-600 dark:text-slate-300 ${busy ? "" : "hidden sm:block"}`}>{busy ? "Assigned agents are working. Navigation pauses until they finish." : "Revisit available steps. Upcoming steps unlock after the current approval."}</p>
       </div>
       <details className="sm:hidden">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-slate-800 [&::-webkit-details-marker]:hidden"><span aria-hidden="true">Step {active + 1} of {WORKFLOW_STEPS.length} · {WORKFLOW_STEPS[active]?.label}</span><span className="text-teal-800 underline underline-offset-2">Show all steps</span></summary>
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-slate-800 dark:text-slate-100 [&::-webkit-details-marker]:hidden"><span aria-hidden="true">Step {active + 1} of {WORKFLOW_STEPS.length} · {WORKFLOW_STEPS[active]?.label}</span><span className="text-violet-700 underline underline-offset-2 dark:text-violet-300">Show all steps</span></summary>
         <div className="mt-3">{stepList}</div>
       </details>
       <div className="hidden sm:block">{stepList}</div>
