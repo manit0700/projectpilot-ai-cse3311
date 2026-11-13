@@ -1,5 +1,6 @@
 import { WORKFLOW_STEPS, AGENTS } from "./agents";
-import type { ProjectContext, Task, WorkflowStep } from "./types";
+import type { SessionEvent } from "./session-log";
+import type { Project, ProjectContext, Requirement, Task, UsageSummary, WorkflowStep } from "./types";
 
 // Client-only bookkeeping; the existing project/task/output models stay unchanged.
 export type WorkflowState = ProjectContext & {
@@ -7,11 +8,24 @@ export type WorkflowState = ProjectContext & {
   revisionTaskIds: string[];
   skippedTaskIds: string[];
   workflowNotice: string | null;
+  /** Epoch ms when the final plan was reached; freezes the measured planning time. */
+  completedAt: number | null;
   draftBrief?: { idea: string; targetUser: string };
+  /** Append-only evaluation log (capped at 2,000 events); see session-log.ts. */
+  events: SessionEvent[];
+  /** Model calls made in this project, summed from route `meta`. Zero in Demo mode. */
+  usage: UsageSummary;
 };
 
+export const EMPTY_USAGE: UsageSummary = { requests: 0, promptTokens: 0, completionTokens: 0, totalLatencyMs: 0, models: [] };
+
 export type TaskEdit = Pick<Task, "title" | "description" | "ownerAgent" | "dependencies">;
-export const taskLabel = (task: Task) => `TASK-${String(task.order).padStart(2, "0")} · ${task.title}`;
+export const taskCode = (task: Task) => `TASK-${String(task.order).padStart(2, "0")}`;
+export const taskLabel = (task: Task) => `${taskCode(task)} · ${task.title}`;
+/** "TASK-03 · Title; TASK-04 · Title" for a list of task ids. Unknown ids are skipped, never printed raw. */
+export function describeTaskIds(ids: string[], tasks: Task[]): string {
+  return ids.map((id) => tasks.find((t) => t.id === id)).filter((t): t is Task => t !== undefined).map(taskLabel).join("; ");
+}
 export const requirementsReady = (s: ProjectContext) =>
   s.requirements.length > 0 && s.requirements.every((r) => r.approvalStatus === "approved");
 
@@ -86,6 +100,34 @@ export function validateTasks(tasks: Task[]): string | null {
     return false;
   }
   return tasks.some((t) => cycle(t.id)) ? "These dependencies would create a circular dependency. Choose another task." : null;
+}
+
+/** Dependencies first, then the original order; the schedule agents run in. */
+export function topologicalOrder(tasks: Task[]): Task[] {
+  const byId = Object.fromEntries(tasks.map((t) => [t.id, t]));
+  const visited = new Set<string>();
+  const result: Task[] = [];
+  function visit(id: string) {
+    if (visited.has(id)) return;
+    visited.add(id);
+    const task = byId[id];
+    if (!task) return;
+    task.dependencies.forEach(visit);
+    result.push(task);
+  }
+  [...tasks].sort((a, b) => a.order - b.order).forEach((t) => visit(t.id));
+  return result;
+}
+
+export function buildApprovedSummary(project: Project, requirements: Requirement[], tasks: Task[]): string {
+  const musts = requirements.filter((r) => r.priority === "must" && r.approvalStatus === "approved").map((r) => r.text);
+  return [
+    `Project: ${project.title}`,
+    `Users: ${project.targetUser}`,
+    `Idea: ${project.description}`,
+    `Must-haves: ${musts.join(" | ") || "none listed"}`,
+    `Tasks planned: ${tasks.length} (dependency-ordered)`,
+  ].join("\n");
 }
 
 export function invalidateTasks(s: WorkflowState, ids: string[]): WorkflowState {
