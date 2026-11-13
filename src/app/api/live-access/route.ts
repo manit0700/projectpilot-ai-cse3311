@@ -1,15 +1,16 @@
-import { hasLiveAccess, liveAccessEnabled, unlockLive } from "@/lib/live-access";
+import { readJsonBody, sameOrigin } from "@/lib/api-guard";
+import { hasLiveAccess, liveAccessConfigured, liveAccessEnabled, unlockLive } from "@/lib/live-access";
+import { liveAccessLimiter, rateLimited } from "@/lib/rate-limit";
 export const runtime = "nodejs";
+// Only gate state is disclosed: whether a code is required, whether the server can
+// honor it, and whether this caller's own cookie is valid. No provider details.
 export async function GET(request: Request) {
-  return Response.json({ authenticated: hasLiveAccess(request), enabled: liveAccessEnabled() }, { headers: { "Cache-Control": "no-store" } });
+  return Response.json({ authenticated: hasLiveAccess(request), enabled: liveAccessEnabled(), configured: liveAccessConfigured() }, { headers: { "Cache-Control": "no-store" } });
 }
 export async function POST(request: Request) {
-  try {
-    const origin = request.headers.get("origin");
-    if (origin && new URL(origin).host !== (request.headers.get("host") || new URL(request.url).host)) return Response.json({ error: "Request origin is not allowed." }, { status: 403 });
-    const raw = await request.text();
-    if (raw.length > 2000) return Response.json({ error: "Request too large." }, { status: 413 });
-    const { code, consent } = JSON.parse(raw);
-    return unlockLive(code, consent, request);
-  } catch { return Response.json({ error: "Invalid access request." }, { status: 400 }); }
+  const foreign = sameOrigin(request); if (foreign) return foreign;
+  const limited = rateLimited(liveAccessLimiter, request, "Too many unlock attempts. Wait ten minutes and try again."); if (limited) return limited;
+  const body = await readJsonBody(request, 2000); if (!body.ok) return body.response;
+  const { code, consent } = body.value as { code?: unknown; consent?: unknown };
+  return unlockLive(code, consent, request);
 }

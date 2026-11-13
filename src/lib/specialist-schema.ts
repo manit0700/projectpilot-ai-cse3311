@@ -8,8 +8,13 @@ const reviewFields = { outputId: text, result: { type: "string", enum: ["pass", 
 const object = (properties: Record<string, unknown>) => ({ type: "object", properties, required: Object.keys(properties), additionalProperties: false });
 export const specialistSchema = object(outputFields);
 export const reviewSchema = object({ reviews: { type: "array", items: object(reviewFields) } });
+// Pins the review to exactly one row per known output id, so the model cannot skip outputs or invent ids.
+export function reviewSchemaFor(outputIds: string[]) {
+  const row = object({ ...reviewFields, outputId: { type: "string", enum: outputIds } });
+  return object({ reviews: { type: "array", minItems: outputIds.length, maxItems: outputIds.length, items: row } });
+}
 
-function isText(v: unknown): v is string { return typeof v === "string" && v.trim().length > 0 && v.length <= 24000; }
+function isText(v: unknown): v is string { return typeof v === "string" && v.trim().length > 0 && v.length <= 40000; }
 function isTexts(v: unknown): v is string[] { return Array.isArray(v) && v.length <= 30 && v.every(isText); }
 export function normalizeSpecialist(value: unknown, taskId: string, retryCount = 0): AgentOutput {
   const v = value as Partial<AgentOutput> | null;

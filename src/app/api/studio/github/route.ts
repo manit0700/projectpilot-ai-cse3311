@@ -1,20 +1,27 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { requireLiveAccess } from '@/lib/live-access';
-import { documentHtml, validFiles } from '@/lib/studio';
+import { documentHtml, validFiles, type SiteFiles } from '@/lib/studio';
+import { failure, readJsonBody, sameOrigin } from '@/lib/api-guard';
+import { findExternalResources } from '@/lib/html-sanitize';
+import { rateLimited, studioLimiter } from '@/lib/rate-limit';
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 export async function POST(request: Request) {
   const denied = requireLiveAccess(request); if (denied) return denied;
-  const origin = request.headers.get('origin');
-  if (origin && origin !== new URL(request.url).origin) return Response.json({ error: 'Request origin is not allowed.' }, { status: 403 });
+  const foreign = sameOrigin(request); if (foreign) return foreign;
+  const limited = rateLimited(studioLimiter, request); if (limited) return limited;
   const token = process.env.GITHUB_MCP_TOKEN?.trim();
   const repository = process.env.GITHUB_MCP_REPOSITORY?.trim();
-  if (!token || !repository || !/^[\w.-]+\/[\w.-]+$/.test(repository)) return Response.json({ error: 'Configure GITHUB_MCP_TOKEN and GITHUB_MCP_REPOSITORY on the server. Use a token scoped to the intended repository.' }, { status: 503 });
-  let input;
-  try { const raw = await request.text(); if (raw.length > 400000) return Response.json({ error: 'Website is too large.' }, { status: 413 }); input = JSON.parse(raw); }
-  catch { return Response.json({ error: 'Invalid request.' }, { status: 400 }); }
-  if (!['connect', 'import', 'publish'].includes(input?.action) || (input.action === 'publish' && (!validFiles(input.files) || input.confirm !== true))) return Response.json({ error: 'Choose a valid action and explicitly approve publishing.' }, { status: 400 });
+  if (!token || !repository || !/^[\w.-]+\/[\w.-]+$/.test(repository)) return failure('Configure GITHUB_MCP_TOKEN and GITHUB_MCP_REPOSITORY on the server. Use a token scoped to the intended repository.', 503, 'auth');
+  const body = await readJsonBody(request, 400000, 'Website is too large.'); if (!body.ok) return body.response;
+  const input = body.value as { action?: unknown; files?: unknown; confirm?: unknown };
+  if (typeof input.action !== 'string' || !['connect', 'import', 'publish'].includes(input.action) || (input.action === 'publish' && (!validFiles(input.files) || input.confirm !== true))) return failure('Choose a valid action and explicitly approve publishing.', 400, 'invalid');
+  if (input.action === 'publish' && validFiles(input.files)) {
+    // Published output must be self-contained: model or manual edits that pull remote code, frame other sites, or embed handlers are refused rather than pushed.
+    const external = findExternalResources(input.files.html, input.files.css);
+    if (external.length) return failure(`The website is not self-contained. Remove external scripts, stylesheets, frames, embeds, meta/base directives and inline event handlers before publishing: ${external.slice(0, 5).join('; ')}`, 400, 'invalid', { external });
+  }
   const [owner, repo] = repository.split('/');
   const base = process.env.GITHUB_MCP_BASE_BRANCH?.trim() || 'main';
   const client = new Client({ name: 'projectpilot-website-studio', version: '1.0.0' });
@@ -48,8 +55,9 @@ export async function POST(request: Request) {
     }
     createdBranch = `projectpilot/site-${crypto.randomUUID()}`;
     await call('create_branch', { owner, repo, from_branch: base, branch: createdBranch });
-    await call('push_files', { owner, repo, branch: createdBranch, message: 'Add ProjectPilot generated website for review', files: [{ path: 'projectpilot-site/index.html', content: documentHtml(input.files, false) }] });
-    const result = await call('create_pull_request', { owner, repo, base, head: createdBranch, title: 'Review ProjectPilot website', body: 'Generated in Website Studio and submitted by the user for review. Files are in projectpilot-site/index.html. Inspect and test the website before merging. Source review does not constitute browser testing.', draft: true });
+    const files = input.files as SiteFiles;
+    await call('push_files', { owner, repo, branch: createdBranch, message: 'Add ProjectPilot generated website for review', files: [{ path: 'projectpilot-site/index.html', content: documentHtml(files, false) }] });
+    const result = await call('create_pull_request', { owner, repo, base, head: createdBranch, title: 'Review ProjectPilot website', body: 'Generated in Website Studio and submitted by the user for review. Files are in projectpilot-site/index.html. The site is self-contained: a single HTML file with inline CSS and JavaScript, a Content-Security-Policy meta tag, and no external scripts, stylesheets, frames, or network requests (verified server-side before publishing). Inspect and test the website before merging. Source review does not constitute browser testing.', draft: true });
     // Construct the URL from our fixed repository and returned PR number, never model text.
     const text = (result.content as { type: string; text?: string }[]).filter(b => b.type === 'text').map(b => b.text || '').join('\n');
     let number: unknown;
@@ -57,6 +65,6 @@ export async function POST(request: Request) {
     const pull = Number(number);
     return Response.json({ repository, branch: createdBranch, url: Number.isSafeInteger(pull) && pull > 0 ? `https://github.com/${repository}/pull/${pull}` : `https://github.com/${repository}/pulls`, published: true });
   } catch {
-    return Response.json({ error: createdBranch ? `GitHub operation did not finish. The branch ${createdBranch} may contain your files; inspect it before retrying.` : 'Could not complete GitHub MCP operation. Check the token, repository permissions, base branch, and whether projectpilot-site/index.html exists for import.' }, { status: 502 });
+    return failure(createdBranch ? `GitHub operation did not finish. The branch ${createdBranch} may contain your files; inspect it before retrying.` : 'Could not complete GitHub MCP operation. Check the token, repository permissions, base branch, and whether projectpilot-site/index.html exists for import.', 502, 'transient');
   } finally { await client.close().catch(() => {}); }
 }
