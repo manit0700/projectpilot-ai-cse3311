@@ -1,202 +1,221 @@
 "use client";
-import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
-import { handoffKey, validHandoff, type StudioHandoff } from '@/lib/studio-handoff';
-import { sseData } from '@/lib/studio-stream';
-import { LiveAccess } from './live-access';
-import { documentHtml, starter, validFiles, type SiteFiles, type StudioMessage } from '@/lib/studio';
-type Version = { name: string; files: SiteFiles };
-const storageKey = 'projectpilot-website-studio-v1';
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { documentHtml, starter, studioMode, type SiteFiles } from "@/lib/studio";
+import { agentPlan, handoffKey, tidyBrief, validHandoff, type StudioHandoff } from "@/lib/studio-handoff";
+import { LIVE_CONSENT_KEY } from "./live-access";
+import { AgentCards, importedTask, LiveResponse, ModePill } from "./studio-agents";
+import { StudioControls } from "./studio-controls";
+import {
+  downloadText, emptyWorkspace, persistWorkspace, readRecovery, restoreWorkspace, type Version, type Workspace,
+} from "./studio-storage";
+import { Button, buttonStyles, mutedStyles, Panel, useWide } from "./studio-ui";
+import { useStudioRun } from "./studio-use-run";
+import { StudioWorkspace } from "./studio-workspace";
+
+// "paused" means a damaged save was found: autosave stays off until the user chooses to start fresh.
+type Persistence = "loading" | "ready" | "paused";
+const recoveryNotice = "A previous save could not be read; a recovery copy was kept. Autosave is paused so the " +
+  "damaged save is not overwritten. Keep working, download the recovery copy, or start fresh.";
+
 export function WebsiteStudio() {
-  const [brief, setBrief] = useState('Build a portfolio website for a student software developer with projects, skills, and a contact section.');
-  const [plan, setPlan] = useState('');
-  const [files, setFiles] = useState<SiteFiles>(starter);
+  const [ws, setWs] = useState<Workspace>(emptyWorkspace);
+  const [persistence, setPersistence] = useState<Persistence>("loading");
+  const [saveStatus, setSaveStatus] = useState("Loading workspace…");
   const [preview, setPreview] = useState<SiteFiles>(starter);
-  const [messages, setMessages] = useState<StudioMessage[]>([]);
-  const [versions, setVersions] = useState<Version[]>([]);
-  const [tab, setTab] = useState<keyof SiteFiles>('html');
-  const [feedback, setFeedback] = useState('');
-  const [busy, setBusy] = useState('');
-  const [error, setError] = useState('');
-  const [saveStatus, setSaveStatus] = useState('Loading workspace…');
-  const [ready, setReady] = useState(false);
   const [access, setAccess] = useState(false);
-  const [mobile, setMobile] = useState(false);
-  const [rounds, setRounds] = useState(1);
-  const [github, setGithub] = useState('');
-  const [prUrl, setPrUrl] = useState('');
-  const [copyFields, setCopyFields] = useState<{ index: number; tag: string; text: string }[]>([]);
-  const [sourcePlan, setSourcePlan] = useState<StudioHandoff | null>(null);
+  // Demo is the default: a fresh tab has not accepted the data-sharing notice, whatever the server says about access.
+  const [consent, setConsent] = useState(false);
+  const [versionNote, setVersionNote] = useState("");
+  const [configured, setConfigured] = useState(false);
+  const [provider, setProvider] = useState<"gemini" | "openrouter">("openrouter");
   const [pendingPlan, setPendingPlan] = useState<StudioHandoff | null>(null);
-  const [liveText, setLiveText] = useState('');
-  const [liveModel, setLiveModel] = useState('');
-  const [activity, setActivity] = useState<Record<string, { status: string; task: string }>>({
-    plan: { status: 'Waiting', task: 'Read the confirmed idea and prepare the website design.' },
-    build: { status: 'Waiting', task: 'Turn the approved plan into HTML, CSS, and JavaScript.' },
-    review: { status: 'Waiting', task: 'Inspect the actual files and send findings to the developer.' }
+  const [rounds, setRounds] = useState(1);
+  const [feedback, setFeedback] = useState("");
+  const [liveOpen, setLiveOpen] = useState<boolean | null>(null);
+  const wide = useWide();
+  const live = studioMode({ access, configured, consent }) === "live";
+  const ready = persistence !== "loading";
+
+  const update = (patch: Partial<Workspace> | ((w: Workspace) => Partial<Workspace>)) =>
+    setWs((w) => ({ ...w, ...(typeof patch === "function" ? patch(w) : patch) }));
+  const say = (role: string, text: string, model?: string) =>
+    update((w) => ({ messages: [...w.messages, { role, text, model }] }));
+  const snapshot = (name: string) => update((w) => ({ versions: [...w.versions.slice(-7), { name, files: w.files }] }));
+  const saveManualVersion = () => {
+    snapshot("Manual checkpoint");
+    setVersionNote(`Version ${Math.min(ws.versions.length + 1, 8)} saved`);
+  };
+  const checkpoint = (files: SiteFiles, name: string) => {
+    update((w) => ({ versions: [...w.versions.slice(-7), { name, files }], files }));
+    setPreview(files);
+  };
+  const agents = useStudioRun({
+    live, provider, projectName: ws.sourcePlan?.title, onUnauthorized: () => setAccess(false), brief: ws.brief, design: ws.design,
+    setDesign: (design) => update({ design }), sourcePlan: ws.sourcePlan ? agentPlan(ws.sourcePlan) : null, files: ws.files,
+    rounds, feedback, setFeedback, say, checkpoint, snapshot,
   });
-  const abort = useRef<AbortController | null>(null);
+  // An imported plan completes the first stage until the designer actually runs.
+  const activity = ws.sourcePlan && agents.activity.plan.status === "Waiting"
+    ? { ...agents.activity, plan: { status: "Completed", task: importedTask } } : agents.activity;
+
   useEffect(() => {
-    const restoreTimer = setTimeout(() => {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (raw) {
-        const s = JSON.parse(raw);
-        if (!validFiles(s.files) || typeof s.brief !== 'string' || typeof s.plan !== 'string' || !Array.isArray(s.messages) || !s.messages.every((m: StudioMessage) => typeof m?.role === 'string' && typeof m?.text === 'string') || !Array.isArray(s.versions) || !s.versions.every((v: Version) => typeof v?.name === 'string' && validFiles(v.files))) throw new Error('Invalid save');
-        if (validHandoff(s.sourcePlan)) { setSourcePlan(s.sourcePlan); setActivity(a => ({...a,plan:{status:'Completed',task:'Idea, requirements, and task plan confirmed in the original workflow.'}})); }
-        setBrief(s.brief); setPlan(s.plan); setFiles(s.files); setPreview(s.files); setMessages(s.messages); setVersions(s.versions);
+    const timer = setTimeout(() => {
+      const restored = restoreWorkspace();
+      try { setConsent(sessionStorage.getItem(LIVE_CONSENT_KEY) === "1"); } catch { /* Storage unavailable: stay in demo. */ }
+      if (restored.status === "restored") {
+        const saved = restored.workspace;
+        // Handoffs saved before the title was de-duplicated repeat it at the start of the brief.
+        const brief = saved.sourcePlan && saved.brief === saved.sourcePlan.brief ? tidyBrief(saved.sourcePlan) : saved.brief;
+        setWs({ ...saved, brief }); setPreview(saved.files);
       }
-      setSaveStatus('Saved in this browser');
-    } catch { setError('The saved workspace could not be restored. Downloaded files are unaffected.'); setSaveStatus('Could not restore saved workspace'); }
-    try { const incoming = JSON.parse(sessionStorage.getItem(handoffKey) || 'null'); if (validHandoff(incoming)) setPendingPlan(incoming); } catch {}
-    setReady(true);
+      if (restored.status === "failed") { setSaveStatus("Autosave paused"); setPersistence("paused"); }
+      else { setSaveStatus("Saved in this browser"); setPersistence("ready"); }
+      try {
+        const incoming = JSON.parse(sessionStorage.getItem(handoffKey) || "null");
+        if (validHandoff(incoming)) setPendingPlan(incoming);
+      } catch { /* Ignore unreadable handoff data. */ }
     }, 0);
-    fetch('/api/live-access').then(r => r.json()).then(s => setAccess(s.authenticated === true)).catch(() => {});
-    return () => { clearTimeout(restoreTimer); abort.current?.abort(); };
-  }, []);
-  useEffect(() => {
-    if (!ready) return;
-    let status = 'Saved in this browser';
-    try { localStorage.setItem(storageKey, JSON.stringify({ brief, plan, files, messages, versions, sourcePlan })); }
-    catch { status = 'Browser storage is full. Download your website to keep changes.'; }
-    const timer = setTimeout(() => setSaveStatus(status), 0);
+    fetch("/api/live-access").then((r) => r.json()).then((s) => setAccess(s.authenticated === true)).catch(() => {});
+    fetch("/api/manager").then((r) => r.json())
+      .then((c) => { setConfigured(c.studioConfigured === true); setProvider(c.studioProvider === "gemini" ? "gemini" : "openrouter"); }).catch(() => {});
     return () => clearTimeout(timer);
-  }, [ready, brief, plan, files, messages, versions, sourcePlan]);
-  function say(role: string, text: string, model?: string) { setMessages(m => [...m, { role, text, model }]); }
-  function checkpoint(next: SiteFiles, name: string) {
-    setCopyFields([]);
-    setVersions(v => [...v.slice(-7), { name, files: next }]); setFiles(next); setPreview(next);
-  }
+  }, []);
+
+  useEffect(() => {
+    if (!versionNote) return;
+    const timer = setTimeout(() => setVersionNote(""), 8000);
+    return () => clearTimeout(timer);
+  }, [versionNote]);
+
+  useEffect(() => {
+    if (persistence !== "ready") return;
+    const saved = persistWorkspace(ws);
+    const timer = setTimeout(() => setSaveStatus(saved ? "Saved in this browser"
+      : "Browser storage is full. Download your website to keep changes."), 0);
+    return () => clearTimeout(timer);
+  }, [persistence, ws]);
+
   function acceptPlan() {
     if (!pendingPlan) return;
-    setVersions(v => [...v.slice(-7), { name: 'Before importing confirmed idea', files }]);
-    setActivity(a => ({...a,plan:{status:'Completed',task:'Idea, requirements, and task plan confirmed in the original workflow.'}}));
-    setSourcePlan(pendingPlan); setBrief(pendingPlan.brief); setPlan(pendingPlan.plan);
-    setFiles(starter); setPreview(starter); setCopyFields([]); setError('');
-    setMessages([{ role: 'Planning → Website team', text: `You confirmed ${pendingPlan.title} in the original planning workflow. The approved requirements, task contracts, dependencies, and constraints have been carried into this workspace.` }]);
-    setPendingPlan(null); sessionStorage.removeItem(handoffKey);
+    const plan = pendingPlan;
+    setWs((w) => ({
+      brief: tidyBrief(plan), design: "", files: starter, sourcePlan: plan,
+      versions: [...w.versions.slice(-7), { name: "Before importing confirmed idea", files: w.files }],
+      messages: [{ role: "Planning → Website team", text: `You confirmed ${plan.title} in the original planning ` +
+        "workflow. The approved requirements, task contracts, dependencies, and constraints have been carried into " +
+        "this workspace. Next, ask the designer to turn them into a website design." }],
+    }));
+    setPreview(starter); agents.setError("");
+    dismissPlan();
   }
-  async function call(stage: string, site: SiteFiles, approvedPlan: string, note: string, signal: AbortSignal) {
-    setLiveText(''); setLiveModel('Selecting a free model…');
-    const task = stage === 'plan' ? 'Preparing the website design from your confirmed idea.' : stage === 'build' ? note ? 'Rewriting the website using your feedback and reviewer findings.' : 'Writing the HTML, CSS, and JavaScript from the approved plan.' : 'Checking the generated source against the approved requirements.';
-    setActivity(a => ({ ...a, [stage]: { status: 'Working live', task } }));
-    const response = await fetch('/api/studio', { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stage, brief, plan: approvedPlan, files: site, feedback: note, live: true }) });
-    let result;
-    if (response.headers.get('content-type')?.includes('text/event-stream') && response.body) {
-      let output = '';
-      for await (const data of sseData(response.body)) {
-        const event = JSON.parse(data);
-        if (event.model) setLiveModel(event.model);
-        if (event.type === 'delta') { output += event.text; setLiveText(output); }
-        if (event.type === 'error') throw new Error(event.error);
-        if (event.type === 'result') result = event.result;
-      }
-      if (!result) throw new Error('The live response ended before the agent finished. Retry this step.');
-    } else result = await response.json();
-    if (!response.ok) { if (response.status === 401) setAccess(false); throw new Error(result.error || 'Agent request failed.'); }
-    setActivity(a => ({ ...a, [stage]: { status: 'Completed', task: stage === 'plan' ? 'Design ready for your approval.' : stage === 'build' ? 'Website files sent to the reviewer.' : 'Source review delivered. Browser testing still needed.' } }));
-    return result;
+  function downloadRecovery() {
+    const raw = readRecovery();
+    if (raw) downloadText("projectpilot-website-studio-recovery.txt", raw);
   }
-  async function run(kind: 'plan' | 'build' | 'revise' | 'review') {
-    if (!sourcePlan) { setError('Confirm your idea in the original planning workflow first.'); return; }
-    const controller = new AbortController(); abort.current = controller;
-    setBusy(kind === 'plan' ? 'Manager is planning…' : kind === 'review' ? 'Reviewer is inspecting the source…' : 'Developer is building…'); setError('');
-    try {
-      if (kind === 'review') {
-        const result = await call('review', files, plan, feedback, controller.signal);
-        say('Reviewer → You', result.text, result.model);
-      } else if (kind === 'plan') {
-        const result = await call('plan', files, sourcePlan?.plan || '', '', controller.signal);
-        setPlan(result.text); say('Manager → Developer', result.text, result.model);
-      } else {
-        setVersions(v => [...v.slice(-7), { name: 'Before agent changes', files }]);
-        const note = kind === 'revise' ? feedback : '';
-        if (note) say('You → Team', note);
-        let site = files;
-        let review = note;
-        for (let i = 0; i <= rounds; i++) {
-          setBusy(i ? `Developer is addressing review ${i}…` : 'Developer is building…');
-          const result = await call('build', site, plan, review, controller.signal);
-          if (!validFiles(result.files)) throw new Error('Agent returned invalid files.');
-          site = result.files; checkpoint(site, i ? `Revision ${i}` : 'First build');
-          say('Developer → Reviewer', i ? 'Updated the website using the review findings. Source is ready for another review.' : 'Created the website files. Please inspect the implementation against the approved plan.', result.model);
-          setBusy('Reviewer is inspecting the source…');
-          const checked = await call('review', site, plan, note, controller.signal);
-          review = checked.text; say('Reviewer → Developer', review, checked.model);
-        }
-        say('Manager → You', 'The bounded build and source-review cycle is complete. Preview the site, test its interactions, and edit the files or request another revision. The agents have not executed browser tests.');
-        setFeedback('');
-      }
-    } catch (e) { setActivity(a => Object.fromEntries(Object.entries(a).map(([key, value]) => [key, value.status === 'Working live' ? { ...value, status: controller.signal.aborted ? 'Stopped' : 'Needs retry' } : value]))); setError(controller.signal.aborted ? 'Stopped. Completed files and messages are preserved.' : e instanceof Error ? e.message : 'Request failed.'); }
-    finally { setBusy(''); abort.current = null; }
+  function dismissPlan() { setPendingPlan(null); sessionStorage.removeItem(handoffKey); }
+  function restoreVersion(version: Version) {
+    update((w) => ({ versions: [...w.versions.slice(-7), { name: "Before restore", files: w.files }], files: version.files }));
+    setPreview(version.files);
   }
-  async function githubAction(action: 'connect' | 'import' | 'publish') {
-    const controller = new AbortController(); abort.current = controller;
-    setBusy('Connecting to GitHub MCP…'); setError(''); setPrUrl('');
-    try {
-      const response = await fetch('/api/studio/github', { method: 'POST', signal: controller.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...(action === 'publish' ? { files, confirm: true } : {}) }) });
-      const result = await response.json();
-      if (!response.ok) { if (response.status === 401) setAccess(false); throw new Error(result.error || 'GitHub request failed.'); }
-      setGithub(result.repository);
-      if (action === 'import') { if (!validFiles(result.files)) throw new Error('Invalid imported website.'); setVersions(v => [...v.slice(-7), { name: 'Before GitHub import', files }]); checkpoint(result.files, 'Imported from GitHub'); say('GitHub MCP → Team', 'Imported projectpilot-site/index.html from ' + result.repository + '. This source is now available to the developer for revision.'); }
-      if (action === 'publish') { setPrUrl(result.url); say('GitHub MCP → You', 'Created a draft pull request in ' + result.repository + ' on branch ' + result.branch + '. Review it on GitHub before merging.'); }
-    } catch (e) { setError(controller.signal.aborted ? 'Stopped waiting for GitHub. Check the repository for partially completed operations before retrying.' : e instanceof Error ? e.message : 'GitHub request failed.'); }
-    finally { setBusy(''); abort.current = null; }
-  }
-  function showCopyEditor() {
-    const doc = new DOMParser().parseFromString(files.html, 'text/html');
-    setCopyFields([...doc.body.querySelectorAll('h1,h2,h3,p,a,button,label')].map((el, index) => ({ index, tag: el.tagName.toLowerCase(), text: el.textContent || '', simple: el.children.length === 0 })).filter(f => f.simple && f.text.trim()).slice(0, 40));
-  }
-  function editCopy(index: number, text: string) {
-    const doc = new DOMParser().parseFromString(files.html, 'text/html');
-    const element = doc.body.querySelectorAll('h1,h2,h3,p,a,button,label')[index];
-    if (!element) return;
-    element.textContent = text;
-    setCopyFields(fields => fields.map(f => f.index === index ? { ...f, text } : f));
-    setFiles(f => ({ ...f, html: /<!doctype|<html/i.test(f.html) ? '<!doctype html>' + doc.documentElement.outerHTML : doc.body.innerHTML }));
-  }
-  function download() {
-    const url = URL.createObjectURL(new Blob([documentHtml(files, false)], { type: 'text/html' }));
-    const a = document.createElement('a'); a.href = url; a.download = 'projectpilot-website.html'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
-  return <div className="studio">
-    <header className="studio-header"><Link href="/">ProjectPilot AI / Planning</Link><span className="studio-badge">WEBSITE STUDIO · FREE MODELS</span><span role="status">{saveStatus}</span></header>
-    <main className="studio-main">
-      <div className="studio-title"><div><p className="studio-eyebrow">FROM IDEA TO SOMETHING YOU CAN OPEN</p><h1>Build it. Make it yours.</h1><p>Your agents plan, build, and review. You stay in control of every line.</p></div><button className="studio-button" onClick={download} disabled={!ready}>Download website</button></div>
-      <nav className="studio-flow" aria-label="Project stages"><Link href="/">1. Confirm idea & requirements</Link><span aria-current="step">2. Build with live agents</span><span>3. Edit, test & export</span></nav>
-      {pendingPlan && <section className="studio-panel studio-incoming" aria-label="Confirmed idea handoff"><h2>Continue with {pendingPlan.title}</h2><p>Your original planning requirements and task plan are ready. Importing starts a new website draft and keeps your current files in saved versions.</p><button className="studio-button" disabled={!!busy} onClick={acceptPlan}>Import confirmed idea</button><button className="studio-button studio-secondary" disabled={!!busy} onClick={() => { setPendingPlan(null); sessionStorage.removeItem(handoffKey); }}>Keep current workspace</button></section>}
-      {!sourcePlan && !pendingPlan && <section className="studio-panel studio-incoming"><h2>First, confirm what we are building.</h2><p>Start with the original ProjectPilot screens: idea, clarifying questions, approved requirements, and task breakdown. Then choose Confirm idea & open Website Studio.</p><Link href="/" className="studio-button">Start with idea confirmation</Link></section>}
-      {sourcePlan && <p className="studio-muted">Confirmed project: <strong>{sourcePlan.title}</strong> · Requirements and task plan carried over from ProjectPilot. <Link href="/">Return to planning</Link></p>}
-      <section className="studio-agents" aria-label="Live agent activity" aria-live="polite">{([['plan', 'Manager / Designer'], ['build', 'Developer'], ['review', 'Reviewer']] as const).map(([id, name]) => <article className="studio-panel" key={id} data-working={activity[id].status === 'Working live'}><h2>{name}</h2><strong className="studio-agent-status">{activity[id].status}</strong><p>{activity[id].task}</p></article>)}</section>
-      <details className="studio-panel studio-live" open={!!busy || undefined}><summary>Live response · {liveModel || 'No model running'}</summary><p className="studio-muted">Actual model output appears here as it arrives. Agents run in dependency order: manager → developer → reviewer → developer revisions. Only public response text is shown; source review does not run browser tests.</p><pre aria-label="Live agent response">{liveText || 'Waiting for an agent request. No prepared responses are used for live builds.'}</pre></details>
-      {error && <p role="alert" className="studio-error">{error}</p>}
-      {sourcePlan && files.html !== starter.html && <button className="studio-button" disabled={!!busy || !access || !sourcePlan || !plan.trim()} onClick={() => run('review')}>{activity.review.status === 'Needs retry' ? 'Retry source review' : 'Review current website'}</button>}
-      <div className="studio-grid">
-        <section className="studio-panel studio-controls" aria-label="Build controls">
-          <h2>01 / Your direction</h2>
-          <label>What are we making?<textarea value={brief} readOnly={!!sourcePlan} disabled={!!busy} maxLength={12000} onChange={e => { setBrief(e.target.value); setPlan(''); }} rows={5} /></label>
-          {!access && <details><summary>Unlock OpenRouter agents</summary><LiveAccess provider="openrouter" onUnlocked={() => setAccess(true)} /></details>}
-          <p className="studio-muted">Static HTML, CSS, and JavaScript. Free models only. No automatic paid fallback.</p>
-          <button className="studio-button" disabled={!ready || !!busy || !access || !sourcePlan || brief.trim().length < 10} onClick={() => run('plan')}>Create a plan</button>
-          {plan && <><label>Review and edit the plan<textarea value={plan} maxLength={18000} disabled={!!busy} rows={8} onChange={e => setPlan(e.target.value)} /></label><label>Automatic review rounds<select disabled={!!busy} value={rounds} onChange={e => setRounds(Number(e.target.value))}><option value={0}>Review only · 2 requests</option><option value={1}>1 revision · 4 requests</option><option value={2}>2 revisions · 6 requests</option></select></label><button className="studio-button" disabled={!!busy || !access || !sourcePlan || !plan.trim()} onClick={() => run('build')}>Approve plan & build</button></>}
-          {busy && <div role="status" aria-live="polite"><p>{busy}</p><button className="studio-button studio-secondary" onClick={() => abort.current?.abort()}>Stop agents</button></div>}
-          <details><summary>GitHub through MCP</summary><p className="studio-muted">Connect to the server-configured repository. Import a previously published site or submit your current files as a draft pull request. Your default branch stays unchanged.</p><div className="studio-tabs"><button className="studio-button studio-secondary" disabled={!!busy || !access} onClick={() => githubAction('connect')}>Connect GitHub</button><button className="studio-button studio-secondary" disabled={!!busy || !access || !github} onClick={() => githubAction('import')}>Import website</button><button className="studio-button" disabled={!!busy || !access || !github} onClick={() => githubAction('publish')}>Create draft pull request</button></div>{github && <p className="studio-muted">Repository: {github}</p>}{prUrl && <a href={prUrl} target="_blank" rel="noreferrer">Open draft pull request</a>}</details>
-          <h2>02 / The conversation</h2>
-          <div className="studio-conversation" role="log" aria-label="Agent handoffs" aria-live="polite">{messages.length ? messages.map((m, i) => <article key={i}><strong>{m.role}</strong>{m.model && <small>{m.model}</small>}<p>{m.text}</p></article>) : <p className="studio-muted">Agent decisions and review findings will appear here. The starter preview is local sample content.</p>}</div>
-          <label>Ask for a change<textarea value={feedback} disabled={!!busy} maxLength={18000} rows={3} onChange={e => setFeedback(e.target.value)} placeholder="Make the header smaller and add a working project filter…" /></label>
-          <button className="studio-button" disabled={!!busy || !access || !sourcePlan || !plan.trim() || !feedback.trim()} onClick={() => run('revise')}>Revise with agents</button>
-        </section>
-        <section className="studio-panel studio-workspace" aria-label="Website editor and preview">
-          <div className="studio-toolbar"><h2>03 / Your website</h2><div><button className="studio-button studio-secondary" aria-pressed={mobile} onClick={() => setMobile(!mobile)}>{mobile ? 'Desktop preview' : 'Mobile preview'}</button><button className="studio-button" disabled={!!busy} onClick={() => setPreview(files)}>Apply edits</button></div></div>
-          <div className={`studio-preview ${mobile ? 'studio-mobile' : ''}`}><iframe title="Generated website preview" sandbox="allow-scripts" srcDoc={documentHtml(preview)} referrerPolicy="no-referrer" /></div>
-          <p className="studio-muted">Preview blocks network requests, forms, and access to ProjectPilot data. Download to test the website independently.</p>
-          <details><summary onClick={() => { if (!busy) showCopyEditor(); }}>Edit page text without code</summary><p className="studio-muted">Change headings, paragraphs, links, and button labels. Apply edits to update the preview. Use the code editor for layout, styles, links, and behavior.</p><div className="studio-copy">{copyFields.length ? copyFields.map(field => <label key={field.index}>{field.tag.toUpperCase()} text<input disabled={!!busy} value={field.text} maxLength={4000} onChange={e => editCopy(field.index, e.target.value)} /></label>) : <p className="studio-muted">No simple text fields found. You can edit all markup below.</p>}</div></details>
-          <div className="studio-tabs" role="group" aria-label="File selection">{(['html', 'css', 'js'] as const).map(k => <button className="studio-button studio-secondary" key={k} aria-pressed={tab === k} onClick={() => setTab(k)}>{k === 'html' ? 'index.html' : k === 'css' ? 'styles.css' : 'script.js'}</button>)}</div>
-          <label className="studio-code-label">Edit {tab.toUpperCase()}<textarea className="studio-code" spellCheck={false} aria-label={`Edit ${tab.toUpperCase()}`} disabled={!!busy} value={files[tab]} onChange={e => { setCopyFields([]); setFiles(f => ({ ...f, [tab]: e.target.value })); }} /></label>
-          <div className="studio-toolbar"><p className="studio-muted">Edits save automatically. Apply edits refreshes the preview.</p><button className="studio-button studio-secondary" disabled={!!busy} onClick={() => setVersions(v => [...v.slice(-7), { name: 'Manual checkpoint', files }])}>Save version</button></div>
-          {versions.length > 0 && <label>Restore a saved version<select disabled={!!busy} value="" onChange={e => { const selected = versions[Number(e.target.value)]; if (selected) { setVersions(v => [...v.slice(-7), { name: 'Before restore', files }]); setCopyFields([]); setFiles(selected.files); setPreview(selected.files); } }}><option value="">Choose a version…</option>{versions.map((v, i) => <option value={i} key={i}>{i + 1}. {v.name}</option>)}</select></label>}
-        </section>
-      </div>
-    </main>
-  </div>;
+  const reviewReason = agents.busy ? "Agents are working. Wait for them or stop them."
+    : !ws.design.trim() ? "Design the website from the imported plan first" : undefined;
+
+  return (
+    <div className="flex min-h-screen flex-col bg-[var(--pp-bg)] text-slate-900">
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-5 sm:px-6">
+          <div className="flex flex-wrap items-center gap-3">
+            <Link href="/" className="inline-flex min-h-11 items-center text-2xl font-semibold tracking-tight text-slate-900">ProjectPilot AI</Link>
+            <ModePill live={live} provider={provider} />
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link href="/" className="inline-flex min-h-11 items-center rounded-xl border border-slate-300 px-4 py-2 font-medium">Planning</Link>
+            <Button disabled={!ready} disabledReason="Loading workspace"
+              onClick={() => downloadText("projectpilot-website.html", documentHtml(ws.files, false), "text/html")}>
+              Download website
+            </Button>
+          </div>
+        </div>
+        <p role="status" aria-live="polite" className="mx-auto max-w-7xl px-4 pb-4 text-sm text-slate-600 sm:px-6">
+          <span>{saveStatus}</span>
+          {versionNote && <span> · <strong className="font-semibold text-teal-800">{versionNote}</strong></span>}
+          {" · "}{live ? `Live · ${provider === "gemini" ? "Gemini" : "OpenRouter"} · Generated code needs human testing.`
+            : "Demo mode · Prepared output from a real earlier run."}
+        </p>
+      </header>
+      <main id="main-content" className="mx-auto w-full max-w-7xl min-w-0 space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Website Studio</h1>
+          <p className="mt-2 text-base leading-relaxed text-slate-600">
+            Turn your confirmed plan into a static website: agents design, build and review it while you edit,
+            preview and export every line.
+          </p>
+        </div>
+        {persistence === "paused" && (
+          <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-relaxed text-amber-950">
+            <p>{recoveryNotice}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button variant="secondary" onClick={downloadRecovery}>Download recovery copy</Button>
+              <Button onClick={() => setPersistence("ready")}>Start fresh and resume autosave</Button>
+            </div>
+          </div>
+        )}
+        {pendingPlan && (
+          <Panel aria-label="Confirmed idea handoff" className="grid gap-3">
+            <h2 className="text-lg font-semibold text-slate-900">Continue with {pendingPlan.title}</h2>
+            <p className={mutedStyles}>
+              Your original planning requirements and task plan are ready. Importing starts a new website draft and
+              keeps your current files in saved versions.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button disabled={!!agents.busy} disabledReason="Agents are working. Wait for them or stop them."
+                onClick={acceptPlan}>Import confirmed idea</Button>
+              <Button variant="secondary" disabled={!!agents.busy} disabledReason="Agents are working. Wait for them or stop them."
+                onClick={dismissPlan}>Keep current workspace</Button>
+            </div>
+          </Panel>
+        )}
+        {!ws.sourcePlan && !pendingPlan && (
+          <Panel className="grid gap-3">
+            <h2 className="text-lg font-semibold text-slate-900">First, confirm what we are building.</h2>
+            <p className={mutedStyles}>
+              Start with the original ProjectPilot screens: idea, clarifying questions, approved requirements, and
+              task breakdown. Then choose Confirm idea & open Website Studio.
+            </p>
+            <Link href="/" className={`${buttonStyles.primary} justify-self-start`}>Start with idea confirmation</Link>
+          </Panel>
+        )}
+        {ws.sourcePlan && (
+          <p className={mutedStyles}>
+            Confirmed project: <strong className="text-slate-900">{ws.sourcePlan.title}</strong> · Requirements and
+            task plan carried over from ProjectPilot. <Link href="/" className="underline">Return to planning</Link>
+          </p>
+        )}
+        <AgentCards activity={activity} />
+        <LiveResponse open={liveOpen ?? wide} onToggle={() => setLiveOpen(!(liveOpen ?? wide))}
+          model={agents.liveModel} text={agents.liveText} live={live} />
+        {agents.error && (
+          <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm leading-relaxed text-rose-900">
+            {agents.error}
+          </p>
+        )}
+        {ws.sourcePlan && ws.files.html !== starter.html && (
+          <Button disabled={!!reviewReason} disabledReason={reviewReason} onClick={() => agents.run("review")}>
+            {agents.activity.review.status === "Needs retry" ? "Retry source review" : "Review current website"}
+          </Button>
+        )}
+        <div className="grid min-w-0 items-start gap-6 lg:grid-cols-[23rem_minmax(0,1fr)]">
+          <StudioControls live={live} configured={configured} provider={provider} onUnlocked={() => { setAccess(true); setConsent(true); }} ready={ready}
+            brief={ws.brief} setBrief={(brief) => update({ brief })} sourcePlan={ws.sourcePlan}
+            design={ws.design} setDesign={(design) => update({ design })} rounds={rounds} setRounds={setRounds}
+            busy={agents.busy} stop={agents.stop} run={agents.run} messages={ws.messages}
+            feedback={feedback} setFeedback={setFeedback} github={agents.github} onGithub={agents.githubAction} />
+          <StudioWorkspace files={ws.files} setFiles={(fn) => update((w) => ({ files: fn(w.files) }))}
+            preview={preview} setPreview={setPreview} versions={ws.versions} busy={agents.busy} wide={wide}
+            saveVersion={saveManualVersion} projectName={ws.sourcePlan?.title} restoreVersion={restoreVersion} />
+        </div>
+      </main>
+    </div>
+  );
 }

@@ -1,3 +1,4 @@
+import { stripDocumentDirectives } from '@/lib/html-sanitize';
 export type SiteFiles = { html: string; css: string; js: string };
 export type StudioMessage = { role: string; text: string; model?: string };
 export const starter: SiteFiles = {
@@ -10,12 +11,21 @@ export function validFiles(value: unknown): value is SiteFiles {
   const f = value as SiteFiles;
   return ['html', 'css', 'js'].every(k => typeof f[k as keyof SiteFiles] === 'string' && f[k as keyof SiteFiles].length <= 120000) && f.html.trim().length > 0;
 }
+// Both preview and published documents carry a CSP that keeps the site self-contained:
+// no network (connect-src 'none'), no remote images or fonts, no form posts, no <base>.
+// `navigate-to` is not widely supported, so top-level navigation from generated code
+// (location.href, <a target="_top">) is constrained by the preview iframe's sandbox
+// attribute in the editor, not by this policy.
+export const sitePolicy = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'";
 export function documentHtml(files: SiteFiles, preview = true) {
   // Escape closing tags so user code cannot escape its intended element.
   const css = files.css.replace(/<\/style/gi, '<\\/style');
   const js = files.js.replace(/<\/script/gi, '<\\/script');
-  const policy = preview ? `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: https:; font-src data:; connect-src 'none'; form-action 'none'; base-uri 'none'">` : '';
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${policy}<title>ProjectPilot website</title><style>${css}</style></head><body>${files.html}<script>${js}</script></body></html>`;
+  // Manual edits can reintroduce <meta http-equiv> or <base>; strip them at render time too.
+  const html = stripDocumentDirectives(files.html);
+  const policy = `<meta http-equiv="Content-Security-Policy" content="${sitePolicy}">`;
+  const mode = preview ? '' : '<!-- Published from ProjectPilot Website Studio. This document is self-contained: no external scripts, styles, frames, or network requests. -->';
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${policy}<title>ProjectPilot website</title><style>${css}</style></head><body>${mode}${html}<script>${js}</script></body></html>`;
 }
 // Normalize full-document model replies into the editor's three-file contract.
 // This is extraction, not a security sanitizer; preview isolation remains required.
@@ -30,8 +40,15 @@ export function normalizeGeneratedFiles(files: SiteFiles): SiteFiles {
   });
   const body = html.match(/<body\b[^>]*>([\s\S]*?)<\/body\s*>/i);
   if (body) html = body[1];
+  // Redirect/rebase directives never belong in body markup; drop them before they reach the editor.
+  html = stripDocumentDirectives(html);
   const combine = (parts: string[]) => [...new Set(parts.map(s => s.trim()).filter(Boolean))].join('\n\n');
   const result = { html: html.trim(), css: combine([files.css, ...styles]), js: combine([files.js, ...scripts]) };
   if (!validFiles(result)) throw new Error('Invalid normalized website files');
   return result;
+}
+export type StudioMode = 'live' | 'demo';
+/** Live needs server access, a configured provider key AND this tab's data-sharing consent; otherwise Studio replays the demo. */
+export function studioMode({ access, configured, consent }: { access: boolean; configured: boolean; consent: boolean }): StudioMode {
+  return access === true && configured === true && consent === true ? 'live' : 'demo';
 }
