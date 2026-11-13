@@ -1,87 +1,75 @@
-# Website Studio and OpenRouter integration
+# Website Studio
 
-Implemented November 12, 2026. Start at `/` with the original ProjectPilot idea-confirmation workflow. After approving requirements and reviewing the task breakdown, choose **Confirm idea & open Website Studio**, then **Import confirmed idea**. This carries the real brief, requirements, task contracts, constraints and dependencies into `/studio`. Importing checkpoints the previous website rather than silently discarding it. The final-plan screen offers the same handoff. New projects automatically select Live API when OpenRouter is configured; the optional guided sample stays explicitly labeled as prepared Demo content.
+Experimental. First committed November 12, 2026 (b2102e0); the Gemini provider, Demo build and hardening described below are uncommitted work from November 13. Not deployed to production. Website Studio is the execution step for approved frontend tasks: after the planning workflow confirms the idea, requirements and task plan, **Confirm idea & open Website Studio** then **Import confirmed idea** carries that context into `/studio`, where agents build a static website that the user inspects, revises, edits, previews and downloads. Importing checkpoints the previous website instead of discarding it.
+
+## Setup
+
+Studio runs on the same provider as the planning workflow when that is Gemini (`AI_PROVIDER=gemini` with `GEMINI_API_KEY`, using the same `GEMINI_MODEL` fallback list and per-role overrides). Otherwise it uses OpenRouter with free-only models, even when `AI_PROVIDER=openai`, because Studio has no OpenAI path. Put secrets in the ignored `.env.local` and restart the server.
+
+Gemini (recommended; free key from https://aistudio.google.com/apikey, no card):
+
+```dotenv
+AI_PROVIDER=gemini
+GEMINI_API_KEY=your-key
+# Optional: models tried in order when one is busy, retired or out of quota
+GEMINI_MODEL=gemini-3.6-flash,gemini-3-flash-preview,gemini-3.1-flash-lite
+LIVE_ACCESS_CODE=a-private-reviewer-passphrase-of-20-plus-chars
+```
+
+Free OpenRouter alternative:
+
+```dotenv
+OPENROUTER_API_KEY=your-key
+OPENROUTER_MODEL=openrouter/free
+LIVE_ACCESS_CODE=a-private-reviewer-passphrase-of-20-plus-chars
+```
+
+Open `/studio`, expand **Unlock live agents**, enter the access code and accept the consent notice: project and source text is sent to the active provider (Google for Gemini, whose free tier may use prompts to improve its products; OpenRouter and its model providers otherwise). Locally, an empty `LIVE_ACCESS_CODE` hides the code field and only consent is required.
+
+**Consent gate:** Studio stays in Demo (prepared output) until the visitor has unlocked live access and accepted the consent notice in this tab, even when a key is configured. **No key needed:** a local starter website and a prepared Studio demo build are available without any key. Demo output is labelled with a **DEMO · prepared output** banner and is replayed content from an earlier real run, not a live model response. Live runs show **LIVE · Gemini** or **LIVE · OpenRouter** instead.
+
+OpenRouter model IDs must be `openrouter/free` or end in `:free`; requests also cap prompt/completion prices at zero, so there is no paid fallback. Optional per-role overrides: `OPENROUTER_MANAGER_MODEL`, `OPENROUTER_DEVELOPER_MODEL`, `OPENROUTER_REVIEWER_MODEL`. Random free-model routing produced intermittent failures and truncated output during development; pinning a single compatible free model per role was more reliable. Set `OPENROUTER_REASONING=off` only for a fixed model that supports non-reasoning mode. The Studio route shares one 105 s budget across every model and provider attempt, with up to 60 s per attempt (route `maxDuration` 120; `ROUTE_BUDGETS.studio` in `src/lib/provider-chain.ts`). `AI_FALLBACK` can let Studio fall back between Gemini and OpenRouter only; OpenAI is never a Studio provider. See [`.env.example`](../.env.example) for the full provider notes.
 
 ## What works
 
-- A local starter website is available without model credentials.
-- Approve an editable manager/design plan before the developer builds.
-- Developer receives the approved plan and current website files. Reviewer receives the actual files. Review findings are passed to the next developer call, with zero, one, or two automatic revision rounds.
-- Stream public manager/developer/reviewer output as it arrives through server-sent events. Live agent cards show each role, its current task, Working/Completed/Needs retry/Stopped state, and the selected model. Only completed, validated files replace the editor; partial code stays in the live response pane. Agents run in dependency order, not simultaneously.
-- Display actual manager/reviewer responses and developer handoff status, including the returned model name. Handoff status is application-generated; it is not a transcript of hidden model reasoning.
-- Request additional changes against the current files, including manual edits.
-- Edit HTML, CSS, and JavaScript directly; edit simple page text without writing code; apply changes to a sandboxed desktop/mobile preview.
-- Download a self-contained HTML file with embedded CSS/JavaScript.
-- Save browser-local work automatically; retain up to eight versions and restore them. Browser saves are local to the origin/device and are not cloud backups.
-- Stop agent requests. Completed output remains available if a later stage fails.
+| Role | Receives | Produces |
+| --- | --- | --- |
+| Manager / designer | Imported brief, requirements, task contracts | Editable website plan; the user approves it before any build |
+| Developer | Approved plan, current files, review findings or user feedback | HTML, CSS and JavaScript files |
+| Reviewer | Approved plan and the actual generated files | Source-review findings for the next developer round or the user |
+| User | Plan, files, findings | Approves, requests changes, edits, previews, exports |
 
-The implementation targets static websites. It does not install packages, generate a working backend, run generated tests, deploy generated sites automatically, or guarantee that generated code is correct. The reviewer performs source review only. Generated scripts run only inside the sandboxed iframe or when the user opens the downloaded website.
+- Agents run in dependency order (manager → developer → reviewer), never simultaneously; zero, one or two automatic revision rounds bound each build. One plan costs one request; a build costs two, four or six requests depending on revision rounds.
+- Public manager/developer/reviewer output streams over server-sent events into a live response pane; agent cards show role, task, state (Waiting, Working, Completed, Needs retry, Stopped) and the returned model name. Only completed, validated files replace the editor; partial code stays in the pane. Status messages are application-generated, not model reasoning.
+- Request further changes against the current files, including manual edits; a separate review action re-reviews the current website without rebuilding it.
+- Edit HTML, CSS and JavaScript directly, or edit simple page text (headings, paragraphs, links, button labels) without code, then apply to the preview.
+- Sandboxed iframe preview at desktop and mobile widths; network, form submission and access to ProjectPilot's browser data are restricted.
+- Autosave plus up to eight browser-local versions with restore (saving shows "Version N saved"); download one self-contained HTML file.
+- Stop a run at any time; completed output survives a later failure, provider error or rate limit.
 
-## OpenRouter setup
+A November 12 walkthrough in Safari took a greeting-page idea through planning, live build, a reviewer response that was cut off (the completed site survived; review was rerun independently), a live revision that removed out-of-scope wording, a manual text edit, mobile preview and download; the exported file worked standalone. This is one example, not evidence that every generated site works without correction. Evidence files: [studio-evidence/](studio-evidence/).
 
-Keep secrets in the ignored `.env.local` file:
+## Limits
 
-```dotenv
-AI_PROVIDER=openrouter
-OPENROUTER_API_KEY=your-key
-OPENROUTER_MODEL=openrouter/free
-LIVE_ACCESS_CODE=your-private-reviewer-code
-```
-
-Restart the server after configuring secrets. Open `/studio`, expand **Unlock OpenRouter agents**, enter the private access code, and accept sharing of project/source data with OpenRouter and its model providers.
-
-Website Studio always uses OpenRouter. The original manager/specialist/review routes also use OpenRouter when its key is configured, unless `AI_PROVIDER=openai` explicitly selects the existing OpenAI integration. Set `AI_PROVIDER=openrouter` to require OpenRouter even when the key is missing. There is no automatic paid-provider fallback.
-
-Optional per-role settings: `OPENROUTER_MANAGER_MODEL`, `OPENROUTER_DEVELOPER_MODEL`, `OPENROUTER_REVIEWER_MODEL`. All OpenRouter model IDs must be `openrouter/free` or end in `:free`; requests additionally cap prompt/completion prices at zero. Original workflow requests require structured-output support. Availability and schema support depend on the model/provider.
-
-A plan uses one request. A build with zero/one/two revision rounds uses two/four/six requests. Manual retries use additional requests. Rate-limit failures preserve browser state. OpenRouter's free-model availability and account limits can change; check https://openrouter.ai/collections/free-models/.
-
-## GitHub MCP
-
-ProjectPilot is the MCP client. OpenRouter provides model inference; GitHub's remote MCP server provides repository operations. No local MCP executable is required.
-
-```dotenv
-GITHUB_MCP_TOKEN=your-repository-scoped-token
-GITHUB_MCP_REPOSITORY=owner/repository
-GITHUB_MCP_BASE_BRANCH=main
-```
-
-Use the actual default/base branch; the existing ProjectPilot repository uses `master`. Give the token repository contents and pull-request permissions for publishing. Keep the token server-side. The current laptop has local configuration from its existing GitHub CLI login and explicitly selects `AI_PROVIDER=openrouter`; no credentials are committed or exposed in browser responses. Production requires separately configured credentials; do not upload a broad personal token as a public shared service credential.
-
-1. **Connect GitHub** initializes the official remote MCP server and lists allowed tools in read-only mode.
-2. **Import website** reads only `projectpilot-site/index.html` from the configured base branch. The imported source becomes current editor content and may be sent in subsequent agent requests. The file must already exist, usually after merging an earlier Studio pull request.
-3. **Create draft pull request** is an explicit user action. It creates a unique `projectpilot/site-*` branch, commits only `projectpilot-site/index.html`, and opens a draft PR against the configured base. It never merges or writes directly to the base branch.
-
-Allowed MCP tools are `get_file_contents`, `create_branch`, `push_files`, and `create_pull_request`. Arbitrary model-selected tools, arbitrary MCP URLs, and arbitrary repositories are not accepted from the browser. A failed/cancelled publish can leave a branch or commit; inspect the reported branch before retrying. GitHub publishing currently requires a user click; agents do not autonomously browse or modify arbitrary repositories.
+- Static websites only. No package installation, backend, database, account system, generated-test execution or deployment of generated sites.
+- The reviewer performs source review only; findings are advisory and were sometimes out of scope during testing. Human inspection and real browser testing remain necessary.
+- Free-model availability, quality and rate limits are external; requests can fail or return incomplete output. The app preserves completed work and exposes retries but cannot guarantee availability.
+- Browser saves belong to one browser/origin; they are not a cloud backup.
+- **GitHub publishing is experimental and disabled in production.** When `GITHUB_MCP_TOKEN`, `GITHUB_MCP_REPOSITORY` and `GITHUB_MCP_BASE_BRANCH` are set, the server acts as an MCP client to GitHub's remote MCP server with a fixed repository and only `get_file_contents`, `create_branch`, `push_files`, `create_pull_request`. **Connect** lists tools read-only; **Import website** reads `projectpilot-site/index.html` from the base branch; **Create draft pull request** (explicit user click) commits that one file to a unique `projectpilot/site-*` branch and opens a draft PR. It never merges or writes to the base branch. A failed publish can leave a branch; inspect it before retrying. Use a fine-grained token limited to one repository with Contents and Pull requests read/write. Note the code defaults the base branch to `main` when unset; this repository uses `master`.
 
 ## Verification
 
 ```sh
-npm test
+npm test            # includes Studio endpoint tests with mocked upstream services
 npm run lint
 npm run build
-# Real requests consume free-model quota; run deliberately.
+PROJECTPILOT_URL=http://localhost:3314 npm run test:studio:browser   # Chrome; model calls and GitHub writes mocked
+# Real requests spend free-model quota; run deliberately:
 node scripts/verify-planning-live.mjs
 node scripts/verify-studio-live.mjs
-# Uses the real generated fixture without further model requests:
-node scripts/verify-generated-site.mjs
-PROJECTPILOT_URL=http://localhost:3314 npm run test:studio:browser
+node scripts/verify-generated-site.mjs   # browser-checks the real generated fixture, no model calls
 ```
 
-- Automated endpoint tests verify access, origin validation, free-only requests, incomplete output, rate-limit behavior, credential boundaries, fixed GitHub repository/path, and draft-PR creation using mocked upstream services.
-- Chrome browser checks verify code/text editing, iframe interaction, ordered agent handoffs, review propagation, revisions, export, refresh recovery, GitHub UI, error recovery, mobile overflow, and uncaught errors. Live generation and GitHub writes are mocked in this script.
-- A real GitHub MCP read-only connection and README read passed; the app's actual connection endpoint returned 200 for `manit0700/projectpilot-ai-cse3311`.
-- No real GitHub write was performed during verification.
-- Real OpenRouter verification passed: the original planning manager generated clarifying questions, approved-test requirements and five valid tasks; the website manager generated a plan, the developer built files, the reviewer returned findings, and a subsequent developer/reviewer revision passed. Actual model output streamed during the website requests. Synthetic test context was used; this is not external student feedback.
-- The real revised study tracker passed browser checks for adding sessions, totals, deletion, fractional/blank-input rejection, safe display of HTML-like text, empty state, mobile overflow and uncaught errors. These checks cover this example, not every future generated site.
-- Initial random free-model requests failed intermittently or truncated output. Local roles are pinned to `dots-studio/dots-3-note-preview:free`, which passed planning/build/review. `OPENROUTER_REASONING=off` is set locally for that compatible model. When using automatic routing or mandatory-reasoning models, leave that setting unset; default low-effort reasoning is excluded from streamed output. Rate limits and provider capacity still apply.
-- Production dependency audit: zero vulnerabilities after updating Next.js to 16.4.6. The full dependency audit still reports moderate development-tool findings.
+Status at b2102e0 plus the November 13 working tree (developer checks, not user evidence; the full suite of 62 tests passed on November 13): endpoint tests cover access, origin validation, free-only enforcement, incomplete output, rate-limit behaviour, credential boundaries, fixed repository/path and mocked draft-PR creation. Browser checks cover editing, iframe interaction, ordered handoffs, review propagation, revisions, export, refresh recovery, GitHub UI, error recovery, mobile overflow and uncaught errors. Real OpenRouter planning, build, review and one revision passed on a synthetic brief. A real GitHub MCP read-only connection passed; no real GitHub write has been performed. Production dependency audit reported zero vulnerabilities after the Next.js 16.4.6 update.
 
-Original provider API: https://openrouter.ai/docs/api/reference/overview
-GitHub MCP setup: https://github.com/github/github-mcp-server/blob/main/docs/remote-server.md
-
-UI verification: the new component hardcoded-value and token-reference checks passed. The rendered Studio snapshot passed all 63 measured default/hover/focus contrast checks with both normal and dark-attribute gate runs; the current app retains its established light theme. The skill reference accuracy suite reported 37/37, which checks its reference examples rather than this application. Taste checks reported two medium heuristics (repeated conversation entries and a wide paragraph); these were reviewed as appropriate to this workspace.
-
-## Laptop access without a password
-
-Local development now has `LIVE_ACCESS_CODE` unset, so no password is needed. The access form hides the password field when the server reports no code is configured; the data-sharing checkbox remains available in the form. Production continues to require its server-configured access code.
+References: [OpenRouter API](https://openrouter.ai/docs/api/reference/overview) · [GitHub remote MCP server](https://github.com/github/github-mcp-server/blob/main/docs/remote-server.md) · earlier narrative in [archive/PROJECTPILOT_LIVE_WORKFLOW_REPORT.md](archive/PROJECTPILOT_LIVE_WORKFLOW_REPORT.md).

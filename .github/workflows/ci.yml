@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# Every job runs with provider credentials, GitHub MCP settings and the live-access
+# code explicitly empty (the workflow-level env below applies to the verify and browser jobs). Tests must pass without network access to any AI provider, and a stray
+# repository secret must never turn CI into a billable run.
+env:
+  OPENAI_API_KEY: ""
+  OPENROUTER_API_KEY: ""
+  GEMINI_API_KEY: ""
+  AI_PROVIDER: ""
+  AI_FALLBACK: ""
+  GITHUB_MCP_TOKEN: ""
+  GITHUB_MCP_REPOSITORY: ""
+  LIVE_ACCESS_CODE: ""
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  verify:
+    name: Lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  browser:
+    name: Browser smoke (Demo mode, bundled Chromium)
+    runs-on: ubuntu-latest
+    needs: verify
+    timeout-minutes: 20
+    # Keyboard-only flow against a production build. Advisory until it has run
+    # green on CI for a while; failures are visible in the job log and artifacts.
+    continue-on-error: true
+    env:
+      PROJECTPILOT_URL: http://localhost:3314
+      PLAYWRIGHT_CHANNEL: ""
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium webkit
+      # verify-studio-browser.mjs launches the installed Chrome channel.
+      - name: Install Chrome for the Studio script
+        continue-on-error: true
+        run: npx playwright install --with-deps chrome
+      - run: npx next build
+      - name: Start production server
+        run: |
+          npx next start -p 3314 > artifacts-server.log 2>&1 &
+          echo $! > server.pid
+      - name: Wait for the port
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:3314/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          echo "Server did not start" >&2
+          cat artifacts-server.log >&2
+          exit 1
+      - run: node scripts/verify-peer-review.mjs
+      # Studio script mocks all model and GitHub calls in the browser; advisory like the rest of this job.
+      - name: Studio browser check (mocked providers)
+        if: always()
+        continue-on-error: true
+        run: node scripts/verify-studio-browser.mjs
+      - name: Stop server
+        if: always()
+        run: |
+          mkdir -p artifacts
+          mv artifacts-server.log artifacts/server.log || true
+          kill "$(cat server.pid)" 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-artifacts
+          path: artifacts/
+          if-no-files-found: ignore

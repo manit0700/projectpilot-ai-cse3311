@@ -45,3 +45,9 @@ next-env.d.ts
 docs/**/*.webm
 docs/**/*.ass
 /.code-review-graph/
+.code-review-graph/
+.claude-flow/
+
+# browser verification outputs
+/artifacts/
+artifacts/

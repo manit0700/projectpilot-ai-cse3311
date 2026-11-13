@@ -1,0 +1,718 @@
+{
+  "project": {
+    "id": "proj-9x2kq1a",
+    "title": "A study-session tracker for university students, where each session logs course, minutes and notes",
+    "description": "A study-session tracker for university students, where each session logs course, minutes and notes. Everything stays in the browser.",
+    "targetUser": "University students",
+    "approvedSummary": "Project: study tracker",
+    "status": "complete",
+    "createdAt": "2026-11-12T10:00:00.000Z",
+    "rubric": "Working prototype\nClear acceptance criteria",
+    "constitution": "Keep it simple\nNo third-party services"
+  },
+  "questions": [
+    {
+      "id": "q-1",
+      "prompt": "Who is the primary user?",
+      "answer": "University students",
+      "why": "Shapes the plan"
+    },
+    {
+      "id": "q-2",
+      "prompt": "What tech stack constraints do you have?",
+      "answer": "Plain HTML, CSS and JavaScript; no build step.",
+      "why": "Shapes the plan"
+    },
+    {
+      "id": "q-3",
+      "prompt": "Do you need login?",
+      "answer": "No login; data stays in the browser.",
+      "why": "Shapes the plan"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "req-a1b2c3d",
+      "projectId": "proj-9x2kq1a",
+      "text": "Log a study session with course, minutes and notes.",
+      "priority": "must",
+      "approvalStatus": "approved",
+      "acceptance": [
+        "Given a course and 45 minutes, When I save, Then the session appears in the list.",
+        "Given 0 minutes, When I save, Then I see a validation message."
+      ]
+    },
+    {
+      "id": "req-e4f5g6h",
+      "projectId": "proj-9x2kq1a",
+      "text": "See total minutes studied this week per course.",
+      "priority": "must",
+      "approvalStatus": "approved",
+      "acceptance": [
+        "Given sessions this week, When I open the weekly view, Then totals per course are shown."
+      ]
+    },
+    {
+      "id": "req-i7j8k9l",
+      "projectId": "proj-9x2kq1a",
+      "text": "Delete a session I logged by mistake.",
+      "priority": "should",
+      "approvalStatus": "approved",
+      "acceptance": [
+        "Given a saved session, When I delete it, Then it disappears and totals update."
+      ]
+    },
+    {
+      "id": "req-m0n1o2p",
+      "projectId": "proj-9x2kq1a",
+      "text": "Keep data in the browser between visits.",
+      "priority": "must",
+      "approvalStatus": "approved",
+      "acceptance": []
+    },
+    {
+      "id": "req-q3r4s5t",
+      "projectId": "proj-9x2kq1a",
+      "text": "Work on a phone-sized screen.",
+      "priority": "could",
+      "approvalStatus": "approved",
+      "acceptance": [
+        "Given a 375px wide viewport, Then no horizontal scrolling is needed."
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task-3fpewho",
+      "projectId": "proj-9x2kq1a",
+      "title": "Define study session data model",
+      "description": "Describe the tables and fields needed to store study sessions, courses and weekly goals.",
+      "ownerAgent": "database",
+      "dependencies": [],
+      "expectedOutput": "Entity list with fields and relationships",
+      "constraints": "Browser-local storage only; no accounts",
+      "state": "completed",
+      "order": 1
+    },
+    {
+      "id": "task-8k1mzq2",
+      "projectId": "proj-9x2kq1a",
+      "title": "Build session storage API",
+      "description": "Implement create, list and delete operations for study sessions with validation.",
+      "ownerAgent": "backend",
+      "dependencies": [
+        "task-3fpewho"
+      ],
+      "expectedOutput": "Function signatures and validation rules",
+      "constraints": "No external services; validate minutes between 1 and 600",
+      "state": "completed",
+      "order": 2
+    },
+    {
+      "id": "task-p0d7vna",
+      "projectId": "proj-9x2kq1a",
+      "title": "Build session form and list",
+      "description": "Create the form to log a session and the list that shows recent sessions.",
+      "ownerAgent": "frontend",
+      "dependencies": [
+        "task-8k1mzq2"
+      ],
+      "expectedOutput": "HTML, CSS and JavaScript files",
+      "constraints": "No frameworks; keyboard accessible",
+      "state": "completed",
+      "order": 3
+    },
+    {
+      "id": "task-c4t9ule",
+      "projectId": "proj-9x2kq1a",
+      "title": "Add weekly totals view",
+      "description": "Show total minutes per course for the current week.",
+      "ownerAgent": "frontend",
+      "dependencies": [
+        "task-p0d7vna"
+      ],
+      "expectedOutput": "Weekly totals component",
+      "constraints": "Reuse the stored sessions; no extra dependencies",
+      "state": "completed",
+      "order": 4
+    },
+    {
+      "id": "task-w2h6xbe",
+      "projectId": "proj-9x2kq1a",
+      "title": "Write acceptance checklist",
+      "description": "List manual and automated checks that prove each requirement works.",
+      "ownerAgent": "testing",
+      "dependencies": [
+        "task-p0d7vna",
+        "task-c4t9ule"
+      ],
+      "expectedOutput": "Checklist mapped to requirements",
+      "constraints": "Every check must be runnable by a student",
+      "state": "completed",
+      "order": 5
+    },
+    {
+      "id": "task-j7r3sy5",
+      "projectId": "proj-9x2kq1a",
+      "title": "Write README and setup guide",
+      "description": "Explain how to run, use and extend the tracker.",
+      "ownerAgent": "documentation",
+      "dependencies": [
+        "task-w2h6xbe"
+      ],
+      "expectedOutput": "README with setup and usage",
+      "constraints": "Plain language; no marketing claims",
+      "state": "completed",
+      "order": 6
+    }
+  ],
+  "agents": [],
+  "outputs": [
+    {
+      "id": "out-1q8w2e1",
+      "taskId": "task-3fpewho",
+      "summary": "Entities:\n- Course: id, name\n- Session: id, courseId, minutes, notes, studiedAt\n- WeeklyGoal: courseId, targetMinutes\nRelationships: Course 1-n Session.",
+      "assumptions": [
+        "Target user is University students",
+        "The project prioritizes planning over production deployment",
+        "Data model, storage, and query design"
+      ],
+      "blockers": [],
+      "confidence": 0.85,
+      "nextSteps": [
+        "Review against the requirements",
+        "Request approval before major changes"
+      ],
+      "retryCount": 0,
+      "approved": "approved",
+      "humanEdited": false
+    },
+    {
+      "id": "out-2q8w2e2",
+      "taskId": "task-8k1mzq2",
+      "summary": "Operations:\n- createSession(input): validates minutes 1-600, returns Session\n- listSessions(): newest first\n- deleteSession(id)\nDepends on the model from task-3fpewho.",
+      "assumptions": [
+        "Target user is University students",
+        "The project prioritizes planning over production deployment",
+        "API routes, auth boundaries, and server logic"
+      ],
+      "blockers": [],
+      "confidence": 0.85,
+      "nextSteps": [
+        "Review against the requirements",
+        "Request approval before major changes"
+      ],
+      "retryCount": 0,
+      "approved": "approved",
+      "humanEdited": false
+    },
+    {
+      "id": "out-3q8w2e3",
+      "taskId": "task-p0d7vna",
+      "summary": "## Form and list\n\nFiles for the UI:\n\n```html filename=public/index.html\n<form id=\"session-form\"><input name=\"minutes\" type=\"number\"></form>\n```\n\n### src/app.js\n\n```js\nexport function save(s) { return s; }\n```\n\n```css\n/* file: public/styles.css */\nbody { font-family: system-ui; }\n```\n\n```bash\nnpm test\n```\n",
+      "assumptions": [
+        "Target user is University students",
+        "The project prioritizes planning over production deployment",
+        "UI screens, components, and client interactions"
+      ],
+      "blockers": [],
+      "confidence": 0.85,
+      "nextSteps": [
+        "Review against the requirements",
+        "Request approval before major changes"
+      ],
+      "retryCount": 0,
+      "approved": "approved",
+      "humanEdited": false
+    },
+    {
+      "id": "out-4q8w2e4",
+      "taskId": "task-c4t9ule",
+      "summary": "Weekly totals:\n- Group sessions by **course**\n- Sum `minutes` for Monday to Sunday\n\n```js filename=src/app.js\nexport function weekly(list) { return list; }\n```\n",
+      "assumptions": [
+        "Target user is University students",
+        "The project prioritizes planning over production deployment",
+        "UI screens, components, and client interactions"
+      ],
+      "blockers": [],
+      "confidence": 0.85,
+      "nextSteps": [
+        "Review against the requirements",
+        "Request approval before major changes"
+      ],
+      "retryCount": 0,
+      "approved": "approved",
+      "humanEdited": true
+    },
+    {
+      "id": "out-5q8w2e5",
+      "taskId": "task-w2h6xbe",
+      "summary": "Checklist:\n1. Log a session with valid input\n2. Reject 0 minutes\n3. Delete a session and confirm totals\n4. Reload and confirm data persists",
+      "assumptions": [
+        "Target user is University students",
+        "The project prioritizes planning over production deployment",
+        "Test plans, checklists, and acceptance criteria"
+      ],
+      "blockers": [
+        "Needs a decision on test runner"
+      ],
+      "confidence": 0.7,
+      "nextSteps": [
+        "Review against the requirements",
+        "Request approval before major changes"
+      ],
+      "retryCount": 0,
+      "approved": "approved",
+      "humanEdited": false
+    },
+    {
+      "id": "out-6q8w2e6",
+      "taskId": "task-j7r3sy5",
+      "summary": "# Study tracker\n\n## Run\nOpen `public/index.html` in a browser.\n\n## Use\nLog sessions, view weekly totals.",
+      "assumptions": [
+        "Target user is University students",
+        "The project prioritizes planning over production deployment",
+        "README, write-ups, and setup guides"
+      ],
+      "blockers": [],
+      "confidence": 0.85,
+      "nextSteps": [
+        "Review against the requirements",
+        "Request approval before major changes"
+      ],
+      "retryCount": 0,
+      "approved": "approved",
+      "humanEdited": false
+    }
+  ],
+  "reviews": [
+    {
+      "id": "rev-1z9y8x1",
+      "outputId": "out-1q8w2e1",
+      "result": "pass",
+      "missingItems": [],
+      "conflicts": [],
+      "suggestions": []
+    },
+    {
+      "id": "rev-2z9y8x2",
+      "outputId": "out-2q8w2e2",
+      "result": "pass",
+      "missingItems": [],
+      "conflicts": [],
+      "suggestions": []
+    },
+    {
+      "id": "rev-3z9y8x3",
+      "outputId": "out-3q8w2e3",
+      "result": "pass",
+      "missingItems": [],
+      "conflicts": [],
+      "suggestions": []
+    },
+    {
+      "id": "rev-4z9y8x4",
+      "outputId": "out-4q8w2e4",
+      "result": "pass",
+      "missingItems": [],
+      "conflicts": [],
+      "suggestions": []
+    },
+    {
+      "id": "rev-5z9y8x5",
+      "outputId": "out-5q8w2e5",
+      "result": "flagged",
+      "missingItems": [],
+      "conflicts": [],
+      "suggestions": [
+        "Add a check for notes longer than 500 characters"
+      ]
+    },
+    {
+      "id": "rev-6z9y8x6",
+      "outputId": "out-6q8w2e6",
+      "result": "pass",
+      "missingItems": [],
+      "conflicts": [],
+      "suggestions": []
+    }
+  ],
+  "feedbackItems": [
+    {
+      "id": "fb-1",
+      "projectId": "proj-9x2kq1a",
+      "userRequest": "Add a validation message for empty notes",
+      "affectedTasks": [
+        "task-p0d7vna",
+        "task-c4t9ule"
+      ],
+      "revisionStatus": "applied"
+    }
+  ],
+  "managerNotes": [],
+  "metrics": {
+    "userAcceptanceRate": 100,
+    "numberOfRevisions": 1,
+    "taskCompletionRate": 100,
+    "conflictRate": 17,
+    "planningElapsedMinutes": 7.5,
+    "usefulnessScore": null
+  },
+  "currentStep": "final",
+  "planApproved": true,
+  "sensitiveUploadAck": false,
+  "startedAt": 1783850400000,
+  "completedAt": 1783850850000,
+  "conflictSummary": null,
+  "staleTaskIds": [],
+  "revisionTaskIds": [],
+  "skippedTaskIds": [],
+  "workflowNotice": null,
+  "events": [
+    {
+      "id": "evt-001",
+      "at": "2026-11-12T10:00:00.000Z",
+      "msSinceStart": 0,
+      "type": "project_started",
+      "mode": "live",
+      "entityId": "proj-9x2kq1a"
+    },
+    {
+      "id": "evt-002",
+      "at": "2026-11-12T10:00:05.000Z",
+      "msSinceStart": 5000,
+      "type": "answer_drafted",
+      "mode": "live",
+      "entityId": "q-1",
+      "provider": "openrouter",
+      "model": "example/free-model",
+      "latencyMs": 2100,
+      "promptTokens": 400,
+      "completionTokens": 120
+    },
+    {
+      "id": "evt-003",
+      "at": "2026-11-12T10:00:05.000Z",
+      "msSinceStart": 5000,
+      "type": "answer_drafted",
+      "mode": "live",
+      "entityId": "q-2",
+      "provider": "openrouter",
+      "model": "example/free-model",
+      "latencyMs": 2100,
+      "promptTokens": 400,
+      "completionTokens": 120
+    },
+    {
+      "id": "evt-004",
+      "at": "2026-11-12T10:00:05.000Z",
+      "msSinceStart": 5000,
+      "type": "answer_drafted",
+      "mode": "live",
+      "entityId": "q-3",
+      "provider": "openrouter",
+      "model": "example/free-model",
+      "latencyMs": 2100,
+      "promptTokens": 400,
+      "completionTokens": 120
+    },
+    {
+      "id": "evt-005",
+      "at": "2026-11-12T10:00:30.000Z",
+      "msSinceStart": 30000,
+      "type": "answer_edited",
+      "mode": "live",
+      "entityId": "q-2",
+      "before": "Prepared answer",
+      "after": "Edited answer"
+    },
+    {
+      "id": "evt-006",
+      "at": "2026-11-12T10:01:00.000Z",
+      "msSinceStart": 60000,
+      "type": "requirement_drafted",
+      "mode": "live",
+      "entityId": "req-a1b2c3d",
+      "provider": "openrouter",
+      "model": "example/free-model",
+      "latencyMs": 3000,
+      "promptTokens": 900,
+      "completionTokens": 300
+    },
+    {
+      "id": "evt-007",
+      "at": "2026-11-12T10:01:00.000Z",
+      "msSinceStart": 60000,
+      "type": "requirement_drafted",
+      "mode": "live",
+      "entityId": "req-e4f5g6h",
+      "provider": "openrouter",
+      "model": "example/free-model",
+      "latencyMs": 3000,
+      "promptTokens": 900,
+      "completionTokens": 300
+    },
+    {
+      "id": "evt-008",
+      "at": "2026-11-12T10:01:00.000Z",
+      "msSinceStart": 60000,
+      "type": "requirement_drafted",
+      "mode": "live",
+      "entityId": "req-i7j8k9l",
+      "provider": "openrouter",
+      "model": "example/free-model",
+      "latencyMs": 3000,
+      "promptTokens": 900,
+      "completionTokens": 300
+    },
+    {
+      "id": "evt-009",
+      "at": "2026-11-12T10:01:00.000Z",
+      "msSinceStart": 60000,
+      "type": "requirement_drafted",
+      "mode": "live",
+      "entityId": "req-m0n1o2p",
+      "provider": "openrouter",
+      "model": "example/free-model",
+      "latencyMs": 3000,
+      "promptTokens": 900,
+      "completionTokens": 300
+    },
+    {
+      "id": "evt-010",
+      "at": "2026-11-12T10:01:00.000Z",
+      "msSinceStart": 60000,
+      "type": "requirement_drafted",
+      "mode": "live",
+      "entityId": "req-q3r4s5t",
+      "provider": "openrouter",
+      "model": "example/free-model",
+      "latencyMs": 3000,
+      "promptTokens": 900,
+      "completionTokens": 300
+    },
+    {
+      "id": "evt-011",
+      "at": "2026-11-12T10:01:30.000Z",
+      "msSinceStart": 90000,
+      "type": "requirement_edited",
+      "mode": "live",
+      "entityId": "req-m0n1o2p",
+      "before": "a",
+      "after": "b"
+    },
+    {
+      "id": "evt-012",
+      "at": "2026-11-12T10:02:00.000Z",
+      "msSinceStart": 120000,
+      "type": "requirement_approved",
+      "mode": "live",
+      "entityId": "req-a1b2c3d"
+    },
+    {
+      "id": "evt-013",
+      "at": "2026-11-12T10:02:00.000Z",
+      "msSinceStart": 120000,
+      "type": "requirement_approved",
+      "mode": "live",
+      "entityId": "req-e4f5g6h"
+    },
+    {
+      "id": "evt-014",
+      "at": "2026-11-12T10:02:00.000Z",
+      "msSinceStart": 120000,
+      "type": "requirement_approved",
+      "mode": "live",
+      "entityId": "req-i7j8k9l"
+    },
+    {
+      "id": "evt-015",
+      "at": "2026-11-12T10:02:00.000Z",
+      "msSinceStart": 120000,
+      "type": "requirement_approved",
+      "mode": "live",
+      "entityId": "req-m0n1o2p"
+    },
+    {
+      "id": "evt-016",
+      "at": "2026-11-12T10:02:00.000Z",
+      "msSinceStart": 120000,
+      "type": "requirement_approved",
+      "mode": "live",
+      "entityId": "req-q3r4s5t"
+    },
+    {
+      "id": "evt-017",
+      "at": "2026-11-12T10:02:30.000Z",
+      "msSinceStart": 150000,
+      "type": "plan_approved",
+      "mode": "live"
+    },
+    {
+      "id": "evt-018",
+      "at": "2026-11-12T10:03:30.000Z",
+      "msSinceStart": 210000,
+      "type": "output_generated",
+      "mode": "live",
+      "entityId": "out-1q8w2e1",
+      "provider": "openrouter",
+      "model": "example/free-model",
+      "latencyMs": 5000,
+      "promptTokens": 1500,
+      "completionTokens": 800
+    },
+    {
+      "id": "evt-019",
+      "at": "2026-11-12T10:03:40.000Z",
+      "msSinceStart": 220000,
+      "type": "output_generated",
+      "mode": "live",
+      "entityId": "out-2q8w2e2",
+      "provider": "openrouter",
+      "model": "example/free-model",
+      "latencyMs": 5000,
+      "promptTokens": 1500,
+      "completionTokens": 800
+    },
+    {
+      "id": "evt-020",
+      "at": "2026-11-12T10:03:50.000Z",
+      "msSinceStart": 230000,
+      "type": "output_generated",
+      "mode": "live",
+      "entityId": "out-3q8w2e3",
+      "provider": "openrouter",
+      "model": "example/free-model",
+      "latencyMs": 5000,
+      "promptTokens": 1500,
+      "completionTokens": 800
+    },
+    {
+      "id": "evt-021",
+      "at": "2026-11-12T10:04:00.000Z",
+      "msSinceStart": 240000,
+      "type": "output_generated",
+      "mode": "live",
+      "entityId": "out-4q8w2e4",
+      "provider": "openrouter",
+      "model": "example/free-model",
+      "latencyMs": 5000,
+      "promptTokens": 1500,
+      "completionTokens": 800
+    },
+    {
+      "id": "evt-022",
+      "at": "2026-11-12T10:04:10.000Z",
+      "msSinceStart": 250000,
+      "type": "output_generated",
+      "mode": "live",
+      "entityId": "out-5q8w2e5",
+      "provider": "openrouter",
+      "model": "example/free-model",
+      "latencyMs": 5000,
+      "promptTokens": 1500,
+      "completionTokens": 800
+    },
+    {
+      "id": "evt-023",
+      "at": "2026-11-12T10:04:20.000Z",
+      "msSinceStart": 260000,
+      "type": "output_generated",
+      "mode": "live",
+      "entityId": "out-6q8w2e6",
+      "provider": "openrouter",
+      "model": "example/free-model",
+      "latencyMs": 5000,
+      "promptTokens": 1500,
+      "completionTokens": 800
+    },
+    {
+      "id": "evt-024",
+      "at": "2026-11-12T10:05:20.000Z",
+      "msSinceStart": 320000,
+      "type": "output_edited",
+      "mode": "live",
+      "entityId": "out-4q8w2e4",
+      "before": "draft",
+      "after": "human text"
+    },
+    {
+      "id": "evt-025",
+      "at": "2026-11-12T10:05:30.000Z",
+      "msSinceStart": 330000,
+      "type": "review_completed",
+      "mode": "live",
+      "entityId": "proj-9x2kq1a",
+      "provider": "openrouter",
+      "model": "example/free-model",
+      "latencyMs": 4000,
+      "promptTokens": 2000,
+      "completionTokens": 600,
+      "detail": "1 flagged"
+    },
+    {
+      "id": "evt-026",
+      "at": "2026-11-12T10:06:40.000Z",
+      "msSinceStart": 400000,
+      "type": "output_approved",
+      "mode": "live",
+      "entityId": "out-1q8w2e1"
+    },
+    {
+      "id": "evt-027",
+      "at": "2026-11-12T10:06:40.000Z",
+      "msSinceStart": 400000,
+      "type": "output_approved",
+      "mode": "live",
+      "entityId": "out-2q8w2e2"
+    },
+    {
+      "id": "evt-028",
+      "at": "2026-11-12T10:06:40.000Z",
+      "msSinceStart": 400000,
+      "type": "output_approved",
+      "mode": "live",
+      "entityId": "out-3q8w2e3"
+    },
+    {
+      "id": "evt-029",
+      "at": "2026-11-12T10:06:40.000Z",
+      "msSinceStart": 400000,
+      "type": "output_approved",
+      "mode": "live",
+      "entityId": "out-4q8w2e4"
+    },
+    {
+      "id": "evt-030",
+      "at": "2026-11-12T10:06:40.000Z",
+      "msSinceStart": 400000,
+      "type": "output_approved",
+      "mode": "live",
+      "entityId": "out-5q8w2e5"
+    },
+    {
+      "id": "evt-031",
+      "at": "2026-11-12T10:06:40.000Z",
+      "msSinceStart": 400000,
+      "type": "output_approved",
+      "mode": "live",
+      "entityId": "out-6q8w2e6"
+    },
+    {
+      "id": "evt-032",
+      "at": "2026-11-12T10:07:00.000Z",
+      "msSinceStart": 420000,
+      "type": "plan_finalized",
+      "mode": "live"
+    }
+  ],
+  "usage": {
+    "requests": 14,
+    "promptTokens": 12000,
+    "completionTokens": 5000,
+    "totalLatencyMs": 42000,
+    "models": [
+      "openrouter/example/free-model"
+    ]
+  }
+}

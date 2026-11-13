@@ -1,76 +1,54 @@
-# ProjectPilot AI Demo Script
+# Final demo script (4 minutes + 60-second Studio coda)
 
-## Short Demo Description
+Target: the final CSE 3311 submission video and live presentation. Total speaking time about four minutes for the planning workflow, then an optional 60-second Website Studio coda that is clearly labelled experimental.
 
-This demo shows how ProjectPilot AI turns one rough software idea into an organized project plan. The user starts by entering a project idea or selecting the guided demo. The Manager Agent then creates clarifying questions, turns the answers into requirements, divides the work into dependency-ordered tasks, assigns those tasks to specialist agents, and sends the outputs through a review step. The important part is that the system does not move forward automatically without the user. Human approval is required before requirements become tasks and before agents run.
+## Setup before recording
 
-## What To Say Before The Demo
+- Fresh browser profile or cleared site data, 1440×900 window, system font size at default.
+- Server running: `npm run dev -- --port 3314`, open http://localhost:3314 (or the deployed URL once the release candidate is live).
+- **Demo mode** (the default on first visit). No API key, no network dependency, deterministic prepared content. Say so on camera; do not present Demo output as model output.
+- Optional live segment: if you show Live mode, configure `AI_PROVIDER=gemini` with a free `GEMINI_API_KEY` (https://aistudio.google.com/apikey) and say that Live output comes from Gemini's free tier, can be slow or hit quota, and is not scripted. Keep it out of the timed recording unless a dry run succeeded the same day.
+- Do a dry run first. The guided workflow's Testing specialist timeout is part of the Demo behaviour; if a dry run does not show it, reset and run again before recording.
+- Have [ITERATION_3.md](ITERATION_3.md) open in a second tab for the screen specification if a question comes up.
 
-For Iteration 1, our goal is to prove the core workflow of our project. ProjectPilot AI is not just a chatbot. It acts like a project manager that coordinates multiple specialized agents. In this demo, we use mock AI responses so the presentation is reliable. The current MVP is a planning prototype and does not call real AI APIs.
+## One-sentence framing (0:00–0:15)
 
-## Live Demo Steps
+"ProjectPilot AI is a project manager for student software projects: one manager agent plans, specialist agents deliver, a review agent checks their work together, and the user approves every step. This run uses Demo mode with prepared content so the recording is reliable."
 
-1. Open the app at `http://localhost:3000`.
-2. On the New Project screen, click `Run guided demo`.
-3. Explain that the guided demo creates a sample student software project.
-4. Show the generated requirements.
-5. Approve the requirements one by one.
-6. Click `Approve requirements -> build tasks`.
-7. Show the task plan (table on desktop, cards on smaller screens).
-8. Point out that the Manager Agent assigned tasks to different agents:
-   - Database Agent
-   - Backend Agent
-   - Frontend Agent
-   - Testing Agent
-   - Documentation Agent
-9. Click `Approve plan & run agents`.
-10. Wait for the agents to finish.
-11. Show the agent outputs and review results.
-12. Explain that the Review Agent checks for missing items, conflicts, and next steps.
-13. Approve individual outputs, leaving one output for revision.
-14. Click `Request revision` on that output, then `Continue to feedback`.
-15. Show the selected task and assigned agent. Enter feedback and click `Apply feedback`.
-16. The app returns to Review. Point out that the revised output is pending while unaffected approvals remain approved.
-17. Approve the revised output, click `Continue to feedback`, then `Skip revisions & finalize approved plan`.
-18. Show the final plan and `Download Markdown`. Planning time saved is a demo estimate, not measured productivity.
-19. Revisit an earlier step using the stepper to demonstrate that viewing preserves existing work. Avoid refreshing: this MVP stores the current session in memory.
+## Steps
 
-## What To Say During The Task Breakdown
+| Time | Screen | Do | Say |
+| --- | --- | --- | --- |
+| 0:15 | Idea | Click **Run guided workflow**, or type a two-line idea (study-session planner for students) and continue. | "We start from a rough idea and the target users." |
+| 0:35 | Clarify | Show the clarifying questions and the **auto-drafted answers**. Edit one answer, then click **Continue to requirements**. | "The manager asks about purpose, data and appearance, and drafts an answer to each from the idea. In Demo these drafts are prepared; in Live they are written by the model. Either way the student reads and edits them, and an edit is never overwritten." |
+| 0:55 | Requirements | Approve the first requirements. **Edit one requirement** (for example, add "works offline"), save it. | "Requirements are editable. Editing an approved requirement reopens the plan, so the manager never plans against stale text." Then **Approve requirements → build tasks**. |
+| 1:25 | Tasks | Point to the owner column and the dependency column; open one task contract to show expected output and constraints. | "Tasks are dependency-ordered: database and API before UI and testing. Each contract says what the specialist must return." Click **Approve plan & run agents**. |
+| 1:50 | Agents | Watch the board. The **Testing specialist times out on its first attempt and retries automatically**; point to the retry count on its card and to the handoff panel showing what it received. | "Calls fail in real life. One automatic retry, then a manual Retry task; unrelated completed work is never thrown away." |
+| 2:20 | Review | Show the review findings. Point to the output with a **conflict** and try to approve it: approval is blocked. | "The review agent checks outputs against each other. A conflict blocks approval and export until it is resolved; a model can never approve its own output." Approve the clean outputs, **Request revision** on the conflicted one, **Continue to feedback**. |
+| 2:50 | Feedback | Enter a one-line change and **Apply feedback**. | "Feedback regenerates the selected output and everything that depends on it, in dependency order." |
+| 3:10 | Review | Show the regenerated output pending while the earlier approvals are still approved. Approve it. | "Unrelated approvals survived; only the revised output needs approval again." **Continue to feedback → Skip revisions & finalize approved plan**. |
+| 3:35 | Final Plan | Click **Download Markdown**, open the file briefly (note the provenance header). Optionally open **Export & backup** and show the spec bundle (.zip) and the AI-use disclosure. Point to the metrics strip. | "The export contains approved requirements, task contracts, deliverables and the revision history. The metrics are measured from this session: acceptance, revisions, completion, review issues and elapsed time." |
+| 3:55 | Any | Use the stepper to revisit Requirements, then refresh the page. | "Earlier steps stay viewable without losing work, and the current project is saved in this browser across refresh." |
 
-Here the Manager Agent breaks the project into smaller tasks. The tasks are ordered by dependency, so database and API planning happen before UI wiring and testing. This is one of the main project goals: reducing manual coordination work for students building software projects.
+Do not say: "time saved" as a productivity claim, "parallel agents", "the agents tested the code", or that this run used a live model.
 
-## What To Say During Agent Output
+## Studio coda (60 seconds, optional, labelled experimental)
 
-Each specialist agent receives the project context, the assigned task, the dependencies, the expected output, and the constraints. The agents then return structured outputs that the Manager Agent can review and combine.
+Studio has a prepared Demo build that needs no key and shows a "DEMO · prepared output" banner; use it for a reliable recording and say it is prepared. Use live Studio (Gemini, or free-only OpenRouter) only if a dry run worked the same day. Open with: "This part is experimental and not in the deployed app."
 
-## What To Say At The End
+1. From Tasks or Final Plan click **Confirm idea & open Website Studio**, then **Import confirmed idea**. "The approved plan, not a vague prompt, is what the builder receives."
+2. Approve the manager's website plan. Show the agent cards and the live response pane as the developer builds and the reviewer responds. "Manager, developer and reviewer run in order; only validated files replace the editor."
+3. Switch the preview to mobile, change one heading in the page-text editor, apply it.
+4. **Download website**; open the file in a new tab. "One self-contained HTML file for the student to inspect and test. Nothing is published or deployed automatically."
 
-This demonstrates the MVP workflow: project idea, requirements, task planning, mock agent assignment, individual output review, and human feedback. Revisions require approval again before finalization. The final plan can be downloaded as Markdown; this demo does not modify repositories, run real AI, or deploy applications.
+## Closing line (10 seconds)
 
-## Step-By-Step Demo Video Recording Plan
+"ProjectPilot keeps the student in charge: approvals at every gate, visible retries, review that can block, and feedback that touches only what it must. The open question for the final report is whether this beats a single chat session, and that is what our student sessions measure."
 
-1. Start screen recording.
-2. Open the browser to `http://localhost:3000`.
-3. Pause on the New Project screen for 2 seconds.
-4. Say: "This is ProjectPilot AI, a multi-agent project planning tool for student software projects."
-5. Click `Run guided demo`.
-6. Pause on the Requirements screen.
-7. Say: "The Manager Agent has converted the project idea into requirements."
-8. Approve each requirement.
-9. Click `Approve requirements -> build tasks`.
-10. Pause on the Task Breakdown screen.
-11. Say: "Now the Manager Agent has divided the project into tasks and assigned each task to a specialist agent."
-12. Point to the Owner column.
-13. Click `Approve plan & run agents`.
-14. Wait until the Review screen appears.
-15. Say: "The agents completed their outputs, and the Review Agent checks for conflicts or missing details."
-16. Approve all but one output and request a revision on the remaining output.
-17. Continue to feedback, show the selected task, and apply a short revision request.
-18. Show the revised output back in Review as pending, then approve it explicitly.
-19. Continue to feedback and finalize the approved plan using the secondary skip-revisions action.
-20. Show the Markdown download and explain that time savings are demo estimates.
-21. Stop recording.
+## Recording checklist
 
-## Short Version For Presentation
-
-ProjectPilot AI takes a rough software project idea and turns it into an organized execution plan. In the demo, the Manager Agent creates requirements, breaks the project into tasks, assigns those tasks to specialist agents, reviews their outputs, and waits for user approval before moving forward. The MVP uses mock AI responses and requires explicit approval of revised outputs. It produces a downloadable plan, not a deployed application.
+- [ ] Dry run completed, Testing timeout observed, conflict observed.
+- [ ] Browser zoom 100%, no personal bookmarks or tabs visible.
+- [ ] Captions or voice-over state "Demo mode" at the start.
+- [ ] Final video length ≤ 4:00 without the coda, ≤ 5:00 with it.
+- [ ] Exported Markdown and (if recorded) exported HTML saved alongside the video as evidence.
