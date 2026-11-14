@@ -80,7 +80,7 @@ for (const [name, engine, options] of [[channel.channel ? 'Chrome' : 'Chromium',
     if (slow) { note('Automated keyboard test in Demo mode. Slow typing and deliberate corrections, not a student session.'); await wait(2000); }
     await type(page.getByRole('textbox', { name: 'Project idea', exact: true }), 'A calendar showing study availability and saved sessions');
     await type(page.getByRole('textbox', { name: 'Target user', exact: true }), 'Individual students');
-    await activate(page.getByRole('button', { name: 'Start clarifying questions', exact: true }));
+    await activate(page.getByRole('button', { name: 'Generate Clarifying Questions →', exact: true }));
     await page.getByRole('heading', { name: 'Clarifying questions', exact: true }).waitFor();
     assert.equal(await page.getByText('Should the project use a live AI API or prepared responses first?', { exact: true }).count(), 0);
     assert(await page.getByText(/It does not affect agent decisions/).isVisible());

@@ -7,7 +7,7 @@ import { useProjectStore } from "@/lib/store";
 import { taskLabel, type TaskEdit } from "@/lib/workflow";
 import type { Task } from "@/lib/types";
 
-const inputClass = "mt-2 block w-full rounded-xl border border-slate-300 bg-white p-3 text-base";
+const inputClass = "mt-2 block w-full rounded-2xl border border-violet-300 bg-white px-4 py-3 text-base text-slate-900 outline-none transition hover:border-violet-400 focus:border-violet-600 focus:ring-4 focus:ring-violet-200/70 focus-visible:outline-violet-600 dark:border-violet-800 dark:bg-slate-950 dark:text-white dark:focus:border-violet-400 dark:focus:ring-violet-900/60 dark:focus-visible:outline-violet-400";
 
 function TaskForm({ heading, initial, excludeId, saveLabel, onSave, onClose }: {
   heading: string;
@@ -25,31 +25,31 @@ function TaskForm({ heading, initial, excludeId, saveLabel, onSave, onClose }: {
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <form aria-label={heading} className="mt-6 space-y-4 rounded-xl border border-teal-200 bg-teal-50 p-4" onSubmit={(event) => {
+    <form aria-label={heading} className="mt-6 space-y-4 rounded-2xl border border-violet-200 bg-violet-50/70 p-5 dark:border-violet-900 dark:bg-violet-950/30" onSubmit={(event) => {
       event.preventDefault();
       const message = onSave({ title, description, ownerAgent, dependencies });
       setError(message);
       if (!message) onClose();
     }}>
-      <h2 className="text-lg font-semibold">{heading}</h2>
-      <label className="block font-medium">Task title<input autoFocus required minLength={3} value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} /></label>
-      <label className="block font-medium">Task description<textarea required minLength={12} rows={3} value={description} onChange={(e) => setDescription(e.target.value)} className={inputClass} /></label>
-      <label className="block font-medium">Assigned agent<select value={ownerAgent} onChange={(e) => setOwnerAgent(e.target.value as Task["ownerAgent"])} className={`${inputClass} min-h-11`}>
+      <h2 className="text-xl font-semibold text-violet-950 dark:text-violet-100">{heading}</h2>
+      <label className="block font-semibold text-slate-950 dark:text-white">Task title<input autoFocus required minLength={3} value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} /></label>
+      <label className="block font-semibold text-slate-950 dark:text-white">Task description<textarea required minLength={12} rows={3} value={description} onChange={(e) => setDescription(e.target.value)} className={inputClass} /></label>
+      <label className="block font-semibold text-slate-950 dark:text-white">Assigned agent<select value={ownerAgent} onChange={(e) => setOwnerAgent(e.target.value as Task["ownerAgent"])} className={`${inputClass} min-h-11`}>
         {agents.filter((a) => a.role !== "manager" && a.role !== "review").map((a) => <option key={a.id} value={a.role}>{AGENT_LABELS[a.role]}</option>)}
       </select></label>
       <fieldset className="space-y-2">
-        <legend className="mb-2 font-semibold">Dependencies</legend>
-        <p className="text-sm text-slate-600">Choose tasks that must finish first. Self-dependencies are excluded; circular dependencies cannot be saved.</p>
-        {tasks.filter((t) => t.id !== excludeId).map((t) => <label key={t.id} className="flex min-h-11 items-start gap-3 rounded-lg bg-white p-3">
-          <input type="checkbox" className="mt-1 size-4 shrink-0 accent-teal-700" checked={dependencies.includes(t.id)} onChange={(e) => setDependencies((ids) => e.target.checked ? [...ids, t.id] : ids.filter((id) => id !== t.id))} />
+        <legend className="mb-2 font-semibold text-slate-950 dark:text-white">Dependencies</legend>
+        <p className="text-sm text-slate-600 dark:text-slate-300">Choose tasks that must finish first. Self-dependencies are excluded; circular dependencies cannot be saved.</p>
+        {tasks.filter((t) => t.id !== excludeId).map((t) => <label key={t.id} className="flex min-h-11 items-start gap-3 rounded-xl border border-violet-100 bg-white p-3 dark:border-violet-900 dark:bg-slate-950">
+          <input type="checkbox" className="mt-1 size-4 shrink-0 accent-violet-700" checked={dependencies.includes(t.id)} onChange={(e) => setDependencies((ids) => e.target.checked ? [...ids, t.id] : ids.filter((id) => id !== t.id))} />
           <span>{taskLabel(t)}</span>
         </label>)}
       </fieldset>
-      {error && <p role="alert" className="text-rose-800">{error}</p>}
-      <p className="text-sm text-slate-600">Saving does not run agents. The task plan still requires your approval.</p>
+      {error && <p role="alert" className="text-rose-800 dark:text-rose-300">{error}</p>}
+      <p className="text-sm text-slate-600 dark:text-slate-300">Saving does not run agents. The task plan still requires your approval.</p>
       <div className="flex flex-wrap gap-3">
-        <button type="submit" className="min-h-11 rounded-xl bg-teal-700 px-4 py-3 font-semibold text-white">{saveLabel}</button>
-        <button type="button" onClick={onClose} className="min-h-11 rounded-xl border border-slate-300 bg-white px-4 py-3">Cancel</button>
+        <button type="submit" className="min-h-11 rounded-xl bg-gradient-to-r from-violet-700 to-purple-600 px-4 py-3 font-semibold text-white shadow-sm">{saveLabel}</button>
+        <button type="button" onClick={onClose} className="min-h-11 rounded-xl border border-violet-300 bg-white px-4 py-3 font-semibold text-violet-800 hover:bg-violet-100 dark:border-violet-800 dark:bg-slate-950 dark:text-violet-200">Cancel</button>
       </div>
     </form>
   );

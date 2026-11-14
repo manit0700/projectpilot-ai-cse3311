@@ -15,7 +15,7 @@ export const importedTask = "Idea, requirements, and task plan confirmed in the 
 export const isWorking = (status: string) => status.startsWith("Working");
 
 export function ModePill({ live, provider }: { live: boolean; provider: "gemini" | "openrouter" }) {
-  const tone = live ? "border-teal-200 bg-teal-50 text-teal-900" : "border-amber-200 bg-amber-50 text-amber-900";
+  const tone = live ? "border-emerald-300/50 bg-emerald-400/15 text-emerald-100" : "border-violet-300/40 bg-white/10 text-violet-100";
   return (
     <span className={`rounded-full border px-3 py-1 text-xs font-semibold tracking-wide ${tone}`}>
       {live ? `LIVE · ${provider === "gemini" ? "Gemini" : "OpenRouter"}` : "DEMO · prepared output"}
@@ -24,17 +24,20 @@ export function ModePill({ live, provider }: { live: boolean; provider: "gemini"
 }
 
 export function AgentCards({ activity }: { activity: Activity }) {
+  const icons: Record<StudioStage, string> = { plan: "✦", build: "</>", review: "⌕" };
   return (
     <section className="grid gap-3 sm:grid-cols-3" aria-label="Agent activity" aria-live="polite">
       {agentNames.map(([id, name]) => {
         const active = isWorking(activity[id].status);
         return (
           <article key={id} data-working={active}
-            className={`min-w-0 rounded-2xl border bg-white p-4 shadow-sm ${
-              active ? "border-teal-700 ring-1 ring-teal-700" : "border-slate-200"}`}>
-            <h2 className="text-base font-semibold text-slate-900">{name}</h2>
-            <p className="mt-1 text-sm font-semibold text-teal-800">{activity[id].status}</p>
-            <p className="mt-1 text-sm leading-relaxed text-slate-600">{activity[id].task}</p>
+            className={`min-w-0 rounded-[1.5rem] border bg-white/95 p-4 shadow-[0_12px_30px_rgba(91,33,182,0.08)] dark:bg-slate-950/95 ${
+              active ? "border-violet-500 ring-2 ring-violet-300/70 dark:ring-violet-800" : "border-violet-100 dark:border-violet-900"}`}>
+            <div className="flex items-start gap-3">
+              <span aria-hidden="true" className={`flex size-10 shrink-0 items-center justify-center rounded-xl font-mono text-sm font-bold ${active ? "bg-violet-600 text-white" : "bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-200"}`}>{icons[id]}</span>
+              <div className="min-w-0"><h2 className="text-base font-bold text-violet-950 dark:text-violet-100">{name}</h2><p className={`mt-1 inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${statusTone(activity[id].status)}`}>{activity[id].status}</p></div>
+            </div>
+            <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{activity[id].task}</p>
           </article>
         );
       })}
@@ -42,8 +45,17 @@ export function AgentCards({ activity }: { activity: Activity }) {
   );
 }
 
-const preStyles = "mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-slate-50 p-3 " +
-  "font-mono text-sm leading-relaxed";
+function statusTone(status: string) {
+  const value = status.toLowerCase();
+  if (value.startsWith("working")) return "bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200";
+  if (value.includes("completed") || value.includes("passed")) return "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200";
+  if (value.includes("error") || value.includes("failed")) return "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200";
+  if (value.includes("retry") || value.includes("revision")) return "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200";
+  return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200";
+}
+
+const preStyles = "mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-2xl border border-violet-900/20 bg-slate-950 p-4 " +
+  "font-mono text-sm leading-relaxed text-violet-100";
 const liveHelp = "Actual model output appears here as it arrives. Agents run in dependency order: manager → " +
   "developer → reviewer → developer revisions. Only public response text is shown; source review does not run browser tests.";
 const demoHelp = "Demo mode replays prepared output from a real earlier live run. Unlock live agents to stream " +
@@ -51,10 +63,10 @@ const demoHelp = "Demo mode replays prepared output from a real earlier live run
 type LiveResponseProps = { open: boolean; onToggle: () => void; model: string; text: string; live: boolean };
 export function LiveResponse({ open, onToggle, model, text, live }: LiveResponseProps) {
   return (
-    <Panel className="p-4">
+    <Panel className="border-violet-200 bg-gradient-to-br from-white to-violet-50/60 p-4 dark:border-violet-900 dark:from-slate-950 dark:to-violet-950/25">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-base font-semibold text-slate-900">
-          Live response · <span className="font-normal text-slate-600">{model || "No agent running"}</span>
+        <h2 className="flex items-center gap-2 text-base font-bold text-violet-950 dark:text-violet-100">
+          <span aria-hidden="true" className="size-2.5 rounded-full bg-violet-500" /> Live response · <span className="font-normal text-slate-600 dark:text-slate-300">{model || "No agent running"}</span>
         </h2>
         <Button variant="secondary" aria-expanded={open} aria-controls="studio-live-output" onClick={onToggle}>
           {open ? "Hide output" : "Show output"}

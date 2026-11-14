@@ -57,13 +57,13 @@ export const AGENT_LABELS: Record<AgentRole, string> = {
 
 export const WORKFLOW_STEPS = [
   { id: "idea", label: "Idea" },
-  { id: "questions", label: "Clarify" },
+  { id: "questions", label: "Questions" },
   { id: "requirements", label: "Requirements" },
   { id: "tasks", label: "Tasks" },
-  { id: "board", label: "Agents" },
+  { id: "board", label: "AI Team" },
   { id: "review", label: "Review" },
-  { id: "feedback", label: "Revise or finalize" },
-  { id: "final", label: "Final Plan" },
+  { id: "feedback", label: "Feedback" },
+  { id: "final", label: "Final" },
 ] as const;
 
 export function uid(prefix: string): string {

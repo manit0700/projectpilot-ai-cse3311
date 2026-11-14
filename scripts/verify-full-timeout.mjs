@@ -51,13 +51,13 @@ try {
   await page.getByRole('textbox', { name: 'Project idea', exact: true }).fill(brief);
   await page.getByRole('textbox', { name: 'Target user', exact: true }).fill('Individual students');
   started = performance.now();
-  await page.getByRole('button', { name: 'Start clarifying questions', exact: true }).click();
+  await page.getByRole('button', { name: 'Generate Clarifying Questions →', exact: true }).click();
   console.log('Waiting for the actual 55-second handler deadline; no timeout scaling.');
   await page.getByText(/Manager timed out or returned an invalid plan/).waitFor({ timeout: 70000 });
   const elapsedSeconds = (performance.now() - started) / 1000;
   assert(abortObserved); assert(elapsedSeconds >= 54.5 && elapsedSeconds < 67);
   assert.equal(await page.getByRole('textbox', { name: 'Project idea', exact: true }).inputValue(), brief);
-  assert(await page.getByRole('button', { name: 'Start clarifying questions', exact: true }).isEnabled());
+  assert(await page.getByRole('button', { name: 'Generate Clarifying Questions →', exact: true }).isEnabled());
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('projectpilot-v2')));
   assert.equal(saved.state.draftBrief.idea, brief);
   await fs.mkdir(outDir, { recursive: true });
@@ -66,7 +66,7 @@ try {
   await page.getByRole('textbox', { name: 'Project idea', exact: true }).waitFor();
   assert.equal(await page.getByRole('textbox', { name: 'Project idea', exact: true }).inputValue(), brief);
   delayed = false;
-  await page.getByRole('button', { name: 'Start clarifying questions', exact: true }).click();
+  await page.getByRole('button', { name: 'Generate Clarifying Questions →', exact: true }).click();
   await page.getByRole('heading', { name: 'Clarifying questions', exact: true }).waitFor();
   await page.getByRole('textbox', { name: 'Which study session fields should be stored?', exact: true }).waitFor();
   assert(await page.getByRole('textbox', { name: 'Which study session fields should be stored?', exact: true }).isVisible());

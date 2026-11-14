@@ -32,7 +32,7 @@ try{
  await page.getByRole('textbox',{name:'Project idea',exact:true}).fill('A small browser study-session tracker for one student. Users add a course and study minutes, list sessions, delete a session, and see total minutes. Use local browser storage with no login or server database. Keep this demo compact with four short specialist tasks for frontend, database/storage, testing and documentation. Deliver a concise design or code sample per task, at most 250 words each.');
  await page.getByRole('textbox',{name:'Target user',exact:true}).fill('One CSE student tracking study sessions');
  await caption('The example is a small study tracker. Its scope fits a student web project.');await pause(4500);
- await page.getByRole('button',{name:'Start clarifying questions',exact:true}).click();await heading('Clarifying questions');await shot('02-questions');
+ await page.getByRole('button',{name:'Generate Clarifying Questions →',exact:true}).click();await heading('Clarifying questions');await shot('02-questions');
  await caption('The live manager asks questions before drafting requirements.');await pause(3500);
  const answers=page.locator('main textarea');
  for(let i=0;i<await answers.count();i++){await answers.nth(i).fill('Single student, desktop and mobile browser. Vanilla HTML/CSS/JavaScript. Store sessions locally with a stable ID, course and positive integer minutes. Show total, add/delete, validation and empty state. No login, sync, deployment, or repository import. Keep four short specialist tasks and outputs under 250 words.');}
