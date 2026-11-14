@@ -69,12 +69,13 @@ function Block({ block }: { block: MarkdownBlock }): ReactNode {
   }
 }
 
-export function DeliverableView({ title, text, humanEdited = false, badge, children }: { title: string; text: string; humanEdited?: boolean; badge?: string; children?: ReactNode }) {
+export function DeliverableView({ title, text, humanEdited = false, badge, children, variant = "default" }: { title: string; text: string; humanEdited?: boolean; badge?: string; children?: ReactNode; variant?: "default" | "purple" }) {
   const blocks = parseMarkdownBlocks(text);
+  const purple = variant === "purple";
   return (
-    <article className="rounded-xl border border-slate-200 bg-white p-4">
+    <article className={`rounded-2xl border bg-white p-4 dark:bg-slate-950 sm:p-5 ${purple ? "border-violet-100 shadow-[0_8px_24px_rgba(91,33,182,0.06)] dark:border-violet-900" : "border-slate-200"}`}>
       <header className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="min-w-0 text-base font-semibold text-slate-900">
+        <h3 className={`min-w-0 text-base font-semibold ${purple ? "text-violet-950 dark:text-violet-100" : "text-slate-900"}`}>
           {title}
           {badge && <span className="ml-2 rounded-full border border-teal-700 px-2 py-0.5 text-xs font-medium text-teal-800">{badge}</span>}
           {humanEdited && <span className="ml-2 rounded-full border border-amber-700 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-900">Edited by you</span>}

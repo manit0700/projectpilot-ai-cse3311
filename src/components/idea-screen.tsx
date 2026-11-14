@@ -1,12 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import { useId, useState } from "react";
 import { OnboardingStrip } from "@/components/onboarding";
 import { ApprovalBar } from "@/components/shell";
 import { useStoreExt } from "@/components/store-ext";
 import { shortProjectTitle } from "@/components/task-handoff";
 import { useProjectStore } from "@/lib/store";
+import { WorkspaceIllustration } from "@/components/workspace-illustration";
 
 const FIELD = "mt-2 w-full rounded-2xl border border-violet-300/90 bg-white/80 px-4 py-3 text-base text-slate-900 shadow-[inset_0_1px_2px_rgba(76,29,149,0.04)] outline-none transition placeholder:text-slate-500 hover:border-violet-400 focus:border-violet-600 focus:ring-4 focus:ring-violet-200/70 dark:bg-slate-950/70 dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:ring-violet-900/60";
 
@@ -60,12 +60,7 @@ function ModeSelector() {
 }
 
 function WorkspaceArt() {
-  return <div className="relative hidden min-h-[48rem] overflow-hidden lg:block">
-    <Image src="/projectpilot-workspace.png" alt="" fill priority sizes="(min-width: 1280px) 32vw, 38vw" className="object-cover" />
-    <div className="absolute inset-0 bg-gradient-to-t from-violet-950/25 via-transparent to-white/10" />
-    <div className="absolute left-6 top-6 rounded-2xl border border-white/40 bg-white/20 p-3 text-white shadow-lg backdrop-blur-md"><PaperPlaneIcon className="size-8 drop-shadow" /></div>
-    <p className="absolute inset-x-6 bottom-6 rounded-2xl border border-white/30 bg-violet-950/35 px-4 py-3 text-sm font-medium leading-relaxed text-white shadow-lg backdrop-blur-md">Start with a clear idea. Your AI team will help shape the plan.</p>
-  </div>;
+  return <WorkspaceIllustration className="hidden min-h-[48rem] lg:block" priority caption="Start with a clear idea. Your AI team will help shape the plan." />;
 }
 
 export function IdeaScreen() {

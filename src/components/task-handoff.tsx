@@ -20,11 +20,12 @@ export function handoffLogLine(task: Task, tasks: Task[] = []): string {
   return `Received: ${received} · Producing: ${task.expectedOutput}`;
 }
 
-export function TaskHandoff({ task, tasks, outputs, feedbackItems }: {
+export function TaskHandoff({ task, tasks, outputs, feedbackItems, variant = "default" }: {
   task: Task;
   tasks: Task[];
   outputs: AgentOutput[];
   feedbackItems: Feedback[];
+  variant?: "default" | "purple";
 }) {
   const output = outputs.find((o) => o.taskId === task.id);
   const prerequisites = task.dependencies.map((id) => {
@@ -34,11 +35,12 @@ export function TaskHandoff({ task, tasks, outputs, feedbackItems }: {
   });
   const feedback = feedbackItems.filter((f) => f.affectedTasks.includes(task.id));
   const attempts = output ? `${output.retryCount + 1} attempt${output.retryCount ? "s" : ""}${output.retryCount ? ` (${output.retryCount} retr${output.retryCount === 1 ? "y" : "ies"})` : ""}` : "Not run yet";
+  const purple = variant === "purple";
 
   return (
-    <details className="mt-3 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-700">
-      <summary className="min-h-11 cursor-pointer px-3 py-2.5 font-semibold text-slate-800">Handoff · what this agent received</summary>
-      <dl className="space-y-2 border-t border-slate-200 px-3 py-3">
+    <details className={`mt-3 rounded-xl border text-sm text-slate-700 dark:text-slate-200 ${purple ? "border-violet-200 bg-violet-50/70 dark:border-violet-800 dark:bg-violet-950/30" : "border-slate-200 bg-slate-50"}`}>
+      <summary className={`min-h-11 cursor-pointer px-3 py-2.5 font-semibold ${purple ? "text-violet-950 dark:text-violet-100" : "text-slate-800"}`}>Handoff · what this agent received</summary>
+      <dl className={`space-y-2 border-t px-3 py-3 ${purple ? "border-violet-200 dark:border-violet-800" : "border-slate-200"}`}>
         <div>
           <dt className="font-semibold text-slate-800">Task contract</dt>
           <dd className="mt-0.5">{task.description}</dd>

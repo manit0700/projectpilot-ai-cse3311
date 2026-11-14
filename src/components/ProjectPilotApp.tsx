@@ -104,9 +104,18 @@ function AppShell() {
   const modeLockReason = !hydrated ? "Loading saved progress." : busy ? "Agents are running." : project.id ? "A project is open. Reset to start a new project in another mode." : null;
   const isLive = managerMode === "live";
   const isIdea = currentStep === "idea";
+  const isQuestions = currentStep === "questions";
+  const isRequirements = currentStep === "requirements";
+  const isTasks = currentStep === "tasks";
+  const isBoard = currentStep === "board";
+  const isReview = currentStep === "review";
+  const isFeedback = currentStep === "feedback";
+  const isFinal = currentStep === "final";
+  const embedsPurpleSidebar = isQuestions || isRequirements || isTasks || isBoard || isReview || isFeedback || isFinal;
+  const usesPurpleCanvas = isIdea || embedsPurpleSidebar;
 
   return (
-    <div className={`flex min-h-screen flex-col text-slate-900 ${isIdea ? "bg-[radial-gradient(circle_at_14%_12%,rgba(255,255,255,0.95),transparent_27%),linear-gradient(135deg,#f7f1ff_0%,#eee2ff_55%,#faf7ff_100%)] dark:bg-[radial-gradient(circle_at_14%_12%,rgba(91,33,182,0.18),transparent_27%),linear-gradient(135deg,#130d21_0%,#1d1230_55%,#0f0b18_100%)]" : "bg-[var(--pp-bg)]"}`}>
+    <div className={`flex min-h-screen flex-col text-slate-900 ${usesPurpleCanvas ? "bg-[radial-gradient(circle_at_14%_12%,rgba(255,255,255,0.95),transparent_27%),linear-gradient(135deg,#f7f1ff_0%,#eee2ff_55%,#faf7ff_100%)] dark:bg-[radial-gradient(circle_at_14%_12%,rgba(91,33,182,0.18),transparent_27%),linear-gradient(135deg,#130d21_0%,#1d1230_55%,#0f0b18_100%)]" : "bg-[var(--pp-bg)]"}`}>
       <a href="#main-content" className="sr-only focus:not-sr-only focus:mx-4 focus:my-2 focus:rounded-lg focus:bg-white focus:p-3 focus:text-teal-800">Skip to main content</a>
       <HeaderBar
         isLive={isLive}
@@ -119,17 +128,17 @@ function AppShell() {
       />
       <Shortcuts />
 
-      <div className={`mx-auto w-full space-y-6 px-4 py-4 sm:px-6 sm:py-8 ${isIdea ? "max-w-[100rem]" : "max-w-7xl"}`}>
-        <MetricsPanel />
-        <div className={`grid min-w-0 items-start gap-6 ${isIdea ? "" : "lg:grid-cols-[minmax(0,1fr)_300px]"}`}>
-          <main ref={mainRef} id="main-content" tabIndex={-1} className={`scroll-mt-6 min-w-0 ${isIdea ? "" : "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-8"}`}>
+      <div className={`mx-auto w-full space-y-6 px-4 py-4 sm:px-6 sm:py-8 ${usesPurpleCanvas ? "max-w-[100rem]" : "max-w-7xl"}`}>
+        {!embedsPurpleSidebar && <MetricsPanel />}
+        <div className={`grid min-w-0 items-start gap-6 ${usesPurpleCanvas ? "" : "lg:grid-cols-[minmax(0,1fr)_300px]"}`}>
+          <main ref={mainRef} id="main-content" tabIndex={-1} className={`scroll-mt-6 min-w-0 ${usesPurpleCanvas ? "" : "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-8"}`}>
             {workflowNotice && <p role="status" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-relaxed text-amber-950">{workflowNotice}</p>}
             {hydrated ? <>
-              <div className={isLive && !liveReady ? "hidden" : undefined}><ScreenRouter />{!isIdea && <BottomNavigation />}</div>
+              <div className={isLive && !liveReady ? "hidden" : undefined}><ScreenRouter />{!usesPurpleCanvas && <BottomNavigation />}</div>
               {isLive && !liveReady && <div className="rounded-[2rem] border border-violet-200 bg-white/90 p-6 shadow-[0_24px_70px_rgba(91,33,182,0.16)] dark:border-violet-900 dark:bg-slate-950/90 sm:p-10"><LiveAccess provider={provider} onUnlocked={() => setLiveReady(true)} /></div>}
             </> : <p role="status">Loading saved project…</p>}
           </main>
-          {!isIdea && <ManagerPanel />}
+          {!usesPurpleCanvas && <ManagerPanel />}
         </div>
       </div>
     </div>
