@@ -485,3 +485,20 @@ test('disclosure: clarifying answers are accepted, edited or undecided; never re
   const stats = disclosure.draftStats([ev('output_generated', 'o-9')], { draft: 'output_generated', edit: 'output_edited', approve: 'output_approved', reject: 'output_rejected' });
   assert.deepEqual(stats, { drafts: 1, accepted: 0, edited: 0, rejected: 0, undecided: 1 });
 });
+
+// ---- Regression: a Live run returned task constraints as a list, which crashed five exporters ----
+test('every exporter works on a project whose task constraints are a list (earlier Live saves)', () => {
+  const s = fixture();
+  s.tasks = s.tasks.map((t, i) => ({ ...t, constraints: i % 2 ? ['No external libraries', 'Use browser storage only'] : [] }));
+  for (const item of catalog.EXPORT_ITEMS) {
+    if (item.unavailable && item.unavailable(s)) continue;
+    assert.doesNotThrow(() => item.build(s, OPTS), `${item.id} must not throw on list constraints`);
+  }
+  const md2 = text(catalog.EXPORT_ITEMS.find((i) => i.id === 'markdown').build(s, OPTS).content ?? catalog.EXPORT_ITEMS.find((i) => i.id === 'markdown').build(s, OPTS));
+  assert(md2.includes('No external libraries; Use browser storage only'), 'list entries are joined, not dropped');
+});
+test('asText joins lists, ignores blanks and tolerates missing values', () => {
+  assert.equal(common.asText(['a', ' ', 'b']), 'a; b');
+  assert.equal(common.asText(undefined), '');
+  assert.equal(common.asText('plain'), 'plain');
+});

@@ -1,7 +1,7 @@
 import { AGENT_LABELS } from "./agents";
 import { planJson } from "./export-backup";
 import {
-  acceptanceOf, constitutionOf, dependencyLabels, draftNote, exportDate, isComplete, isHumanEdited, modeLabel, orderedTasks, outputFor, planSlug,
+  acceptanceOf, asText, constitutionOf, dependencyLabels, draftNote, exportDate, isComplete, isHumanEdited, modeLabel, orderedTasks, outputFor, planSlug,
   requirementRef, resolveMode, rubricOf, scrubIds, shortTitle, taskTitle, type ExportFile, type ExportOptions,
 } from "./export-common";
 import { provenanceLines } from "./plan-export";
@@ -59,7 +59,7 @@ export function agentInstructionsMd(s: WorkflowState): string {
   const constitution = constitutionOf(s);
   const rubric = rubricOf(s);
   const stackAnswers = s.questions.filter((q) => /tech|stack|language|host|database|login|auth|constraint|framework/i.test(q.prompt) && q.answer.trim());
-  const taskConstraints = [...new Set(s.tasks.map((t) => t.constraints.trim()).filter(Boolean))];
+  const taskConstraints = [...new Set(s.tasks.map((t) => asText(t.constraints).trim()).filter(Boolean))];
   const criteria = activeRequirements(s).flatMap(({ r, ref }) => acceptanceOf(r).map((c) => `${ref}: ${clean(c)}`));
   const musts = activeRequirements(s).filter(({ r }) => r.priority === "must");
   return [

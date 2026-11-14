@@ -103,6 +103,9 @@ function AppShell() {
   const modeLocked = busy || !!project.id || !hydrated;
   const modeLockReason = !hydrated ? "Loading saved progress." : busy ? "Agents are running." : project.id ? "A project is open. Reset to start a new project in another mode." : null;
   const isLive = managerMode === "live";
+  // A finished plan makes no more model calls, so it stays viewable and exportable without the Live consent form
+  // (for example after importing a backup in a new tab). The form returns as soon as the user leaves the final step.
+  const needsLiveGate = isLive && !liveReady && currentStep !== "final";
 
   return (
     <div className="flex min-h-screen flex-col bg-[var(--pp-bg)] text-slate-900">
@@ -123,7 +126,7 @@ function AppShell() {
         <div className="grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
           <main ref={mainRef} id="main-content" tabIndex={-1} className="scroll-mt-6 min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-8">
             {workflowNotice && <p role="status" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-relaxed text-amber-950">{workflowNotice}</p>}
-            {hydrated ? isLive && !liveReady ? <LiveAccess provider={provider} onUnlocked={() => setLiveReady(true)} /> : <><ScreenRouter /><BottomNavigation /></> : <p role="status">Loading saved project…</p>}
+            {hydrated ? needsLiveGate ? <LiveAccess provider={provider} onUnlocked={() => setLiveReady(true)} /> : <><ScreenRouter /><BottomNavigation /></> : <p role="status">Loading saved project…</p>}
           </main>
           <ManagerPanel />
         </div>

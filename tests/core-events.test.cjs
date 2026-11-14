@@ -253,3 +253,13 @@ test('the unused sensitive-upload acknowledgement is gone from the store', () =>
   assert.equal(h.get().ackSensitiveUpload, undefined);
   assert.equal('sensitiveUploadAck' in h.get(), false);
 });
+
+test('restoring an earlier Live save turns list constraints into a string', async () => {
+  const source = harness(); planned(source);
+  const saved = JSON.parse(JSON.stringify(source.get()));
+  saved.tasks = saved.tasks.map((t, i) => ({ ...t, constraints: i === 0 ? ['one', ' ', 'two'] : ['solo'] }));
+  const { h } = await restoreState(saved, 'demo', 3);
+  assert.equal(h.get().tasks[0].constraints, 'one; two');
+  assert.equal(h.get().tasks[1].constraints, 'solo');
+  assert(h.get().tasks.every((t) => typeof t.constraints === 'string'));
+});
