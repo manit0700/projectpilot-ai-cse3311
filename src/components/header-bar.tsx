@@ -59,10 +59,17 @@ export function HeaderBar({ isLive, providerLabel, providerConfigured, modeLocke
 
   const modeControls = (
     <div className="flex flex-wrap items-center gap-3">
-      <div>
-        <label className="text-sm font-medium text-white">Agent mode <select aria-label="Agent mode" aria-describedby={modeLocked ? "mode-lock-help" : "mode-help"} value={managerMode} disabled={modeLocked} onChange={(e) => setManagerMode(e.target.value as "demo" | "live")} className="ml-2 min-h-11 rounded-lg border border-white/25 bg-white/10 p-2 text-white disabled:cursor-not-allowed disabled:opacity-60"><option className="text-slate-900 dark:text-slate-50" value="demo">Demo (default)</option><option className="text-slate-900 dark:text-slate-50" value="live">Live API{providerConfigured ? ` · ${providerLabel}` : " · not configured"}</option></select></label>
-        {modeLocked ? <p id="mode-lock-help" className="mt-1 text-xs text-violet-200">Mode locked: {modeLockReason}</p> : <p id="mode-help" className="mt-1 text-xs text-violet-200">Live is opt-in and asks for data-sharing consent.</p>}
-      </div>
+      {modeLocked ? (
+        <p id="mode-lock-help" title={modeLockReason ?? undefined} className="flex min-h-11 items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-3 text-sm text-violet-100">
+          <span aria-hidden="true">🔒</span><span>Mode: <strong className="font-semibold text-white">{managerMode === "live" ? "Live API" : "Demo"}</strong></span>
+          <span className="sr-only"> — locked. {modeLockReason}</span>
+        </p>
+      ) : (
+        <div>
+          <label className="text-sm font-medium text-white">Agent mode <select aria-label="Agent mode" aria-describedby="mode-help" value={managerMode} onChange={(e) => setManagerMode(e.target.value as "demo" | "live")} className="ml-2 min-h-11 rounded-lg border border-white/25 bg-white/10 p-2 text-white"><option className="text-slate-900 dark:text-slate-50" value="demo">Demo (default)</option><option className="text-slate-900 dark:text-slate-50" value="live">Live API{providerConfigured ? ` · ${providerLabel}` : " · not configured"}</option></select></label>
+          <p id="mode-help" className="mt-1 text-xs text-violet-200">Live is opt-in and asks for data-sharing consent.</p>
+        </div>
+      )}
       {isLive && <button type="button" disabled={busy} aria-describedby={busy ? "live-access-help" : undefined} className="min-h-11 text-white underline underline-offset-4 disabled:cursor-not-allowed disabled:opacity-50" onClick={onLiveAccess}>Live access</button>}
       {isLive && busy && <span id="live-access-help" className="text-xs text-violet-200">Available after the current run.</span>}
     </div>

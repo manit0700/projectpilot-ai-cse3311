@@ -211,8 +211,8 @@ export function ReviewScreen() {
   const revisionCount = outputs.filter((o) => o.approved === "rejected").length;
 
   return (
-    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-[180px_minmax(0,1fr)_250px] 2xl:grid-cols-[210px_minmax(0,1fr)_280px]">
-      <WorkspaceIllustration src="/projectpilot-review-workspace.png" className="sticky top-6 hidden h-[50rem] rounded-[2rem] border border-white/50 shadow-[0_24px_60px_rgba(91,33,182,0.18)] xl:block" sizes="210px" />
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-[minmax(0,1fr)_250px] 2xl:grid-cols-[210px_minmax(0,1fr)_280px]">
+      <WorkspaceIllustration src="/projectpilot-review-workspace.png" className="sticky top-6 hidden h-[50rem] rounded-[2rem] border border-white/50 shadow-[0_24px_60px_rgba(91,33,182,0.18)] 2xl:block" sizes="210px" />
 
       <section className="min-w-0 rounded-[2rem] border border-violet-100/90 bg-white/90 p-4 shadow-[0_24px_70px_rgba(91,33,182,0.14)] dark:border-violet-900 dark:bg-slate-950/90 sm:p-7" aria-labelledby="review-screen-title">
         <p className="text-sm font-bold uppercase tracking-[.2em] text-violet-600 dark:text-violet-300">Review · Step 6</p>
@@ -341,8 +341,8 @@ export function FeedbackScreen() {
   const automaticIds = affectedIds.filter((id) => !revisionTaskIds.includes(id));
 
   return (
-    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-[180px_minmax(0,1fr)_250px] 2xl:grid-cols-[210px_minmax(0,1fr)_280px]">
-      <WorkspaceIllustration src="/projectpilot-feedback-workspace.png" className="sticky top-6 hidden h-[50rem] rounded-[2rem] border border-white/50 shadow-[0_24px_60px_rgba(91,33,182,0.18)] xl:block" sizes="210px" />
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-[minmax(0,1fr)_250px] 2xl:grid-cols-[210px_minmax(0,1fr)_280px]">
+      <WorkspaceIllustration src="/projectpilot-feedback-workspace.png" className="sticky top-6 hidden h-[50rem] rounded-[2rem] border border-white/50 shadow-[0_24px_60px_rgba(91,33,182,0.18)] 2xl:block" sizes="210px" />
 
       <section className="min-w-0 rounded-[2rem] border border-violet-100/90 bg-white/90 p-4 shadow-[0_24px_70px_rgba(91,33,182,0.14)] dark:border-violet-900 dark:bg-slate-950/90 sm:p-7" aria-labelledby="feedback-screen-title">
         <p className="text-sm font-bold uppercase tracking-[.2em] text-violet-600 dark:text-violet-300">Feedback · Step 7</p>

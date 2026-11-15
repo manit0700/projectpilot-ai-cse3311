@@ -58,8 +58,8 @@ export function RequirementsScreen() {
   ];
 
   return (
-    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,1fr)_280px] xl:grid-cols-[250px_minmax(0,1fr)_280px]">
-      <WorkspaceIllustration src="/projectpilot-requirements-workspace.png" className="sticky top-6 hidden h-[54rem] rounded-[2rem] border border-white/50 shadow-[0_24px_60px_rgba(91,33,182,0.18)] xl:block" sizes="250px" />
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,1fr)_280px] 2xl:grid-cols-[250px_minmax(0,1fr)_280px]">
+      <WorkspaceIllustration src="/projectpilot-requirements-workspace.png" className="sticky top-6 hidden h-[54rem] rounded-[2rem] border border-white/50 shadow-[0_24px_60px_rgba(91,33,182,0.18)] 2xl:block" sizes="250px" />
 
       <section className="min-w-0 rounded-[2rem] border border-violet-200/80 bg-white/95 p-5 shadow-[0_24px_70px_rgba(91,33,182,0.13)] backdrop-blur-sm dark:border-violet-900 dark:bg-slate-950/95 sm:p-8">
         <h1 className="text-3xl font-bold tracking-tight text-slate-950 dark:text-white sm:text-4xl">Project Requirements</h1>
@@ -112,10 +112,13 @@ export function RequirementsScreen() {
               ) : <>
                 <p className="text-lg font-semibold leading-relaxed text-slate-900 dark:text-white">{r.text}</p>
                 {r.acceptance && r.acceptance.length > 0 && (
-                  <div className="rounded-2xl border border-violet-100 bg-violet-50/70 px-4 py-3 dark:border-violet-900 dark:bg-violet-950/30">
-                    <p className="text-sm font-semibold text-violet-950 dark:text-violet-100">Acceptance criteria</p>
+                  <details className="group rounded-2xl border border-violet-100 bg-violet-50/70 px-4 py-3 dark:border-violet-900 dark:bg-violet-950/30">
+                    <summary className="flex min-h-9 cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-violet-950 dark:text-violet-100 [&::-webkit-details-marker]:hidden">
+                      <span>Acceptance criteria <span className="font-normal text-slate-600 dark:text-slate-300">({r.acceptance.length})</span></span>
+                      <span aria-hidden="true" className="text-violet-600 transition group-open:rotate-180">▾</span>
+                    </summary>
                     <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-slate-700 marker:text-violet-500 dark:text-slate-300">{r.acceptance.map((line, i) => <li key={`${i}-${line}`}>{line}</li>)}</ul>
-                  </div>
+                  </details>
                 )}
                 <div className="flex flex-wrap gap-2">
                   <button type="button" disabled={locked} aria-pressed={approved} aria-label={`Approve requirement ${n}`} aria-describedby={help} onClick={() => toggleRequirement(r.id, "approved")} className={`${BUTTON} ${approved ? "border-emerald-600 bg-emerald-600 text-white" : "border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200"}`}>{approved ? "Approved ✓" : "Approve"}</button>
