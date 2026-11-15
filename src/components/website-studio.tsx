@@ -1,9 +1,9 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { documentHtml, starter, studioMode, type SiteFiles } from "@/lib/studio";
 import { agentPlan, handoffKey, tidyBrief, validHandoff, type StudioHandoff } from "@/lib/studio-handoff";
-import { planChanged, readSavedPlan, sendFindingsToPlanning } from "@/lib/studio-sync";
+import { planChanged, planFingerprint, readSavedPlan, sendFindingsToPlanning } from "@/lib/studio-sync";
 import { LIVE_CONSENT_KEY } from "./live-access";
 import { AgentCards, importedTask, LiveResponse, ModePill } from "./studio-agents";
 import { StudioControls } from "./studio-controls";
@@ -16,6 +16,8 @@ import { StudioWorkspace } from "./studio-workspace";
 
 // "paused" means a damaged save was found: autosave stays off until the user chooses to start fresh.
 type Persistence = "loading" | "ready" | "paused";
+/** Project titles are cut from the idea text and end in "..."; show them without it. */
+const plain = (title: string) => title.replace(/(\.{3}|…)$/, "").trim();
 const recoveryNotice = "A previous save could not be read; a recovery copy was kept. Autosave is paused so the " +
   "damaged save is not overwritten. Keep working, download the recovery copy, or start fresh.";
 
@@ -37,6 +39,7 @@ export function WebsiteStudio() {
   const [rounds, setRounds] = useState(1);
   const [feedback, setFeedback] = useState("");
   const [liveOpen, setLiveOpen] = useState<boolean | null>(null);
+  const dismissedPlan = useRef<string | null>(null);
   const wide = useWide();
   const live = studioMode({ access, configured, consent }) === "live";
   const ready = persistence !== "loading";
@@ -98,7 +101,9 @@ export function WebsiteStudio() {
     if (!source || persistence !== "ready") return;
     const check = () => {
       const saved = readSavedPlan();
-      setPlanUpdate(saved && saved.projectId === source.projectId && planChanged(source, saved) ? saved : null);
+      const changed = saved && saved.projectId === source.projectId && planChanged(source, saved);
+      // A plan the user chose to keep stays dismissed until planning changes again.
+      setPlanUpdate(changed && planFingerprint(saved) !== dismissedPlan.current ? saved : null);
     };
     window.addEventListener("storage", check);
     window.addEventListener("focus", check);
@@ -156,7 +161,7 @@ export function WebsiteStudio() {
     const raw = readRecovery();
     if (raw) downloadText("projectpilot-website-studio-recovery.txt", raw);
   }
-  function dismissPlan() { setPendingPlan(null); sessionStorage.removeItem(handoffKey); }
+  function dismissPlan() { setPendingPlan(null); try { sessionStorage.removeItem(handoffKey); } catch { /* storage blocked */ } }
   function restoreVersion(version: Version) {
     update((w) => ({ versions: [...w.versions.slice(-7), { name: "Before restore", files: w.files }], files: version.files }));
     setPreview(version.files);
@@ -210,7 +215,7 @@ export function WebsiteStudio() {
         )}
         {pendingPlan && (
           <Panel aria-label="Confirmed idea handoff" className="grid gap-3 border-violet-200 bg-gradient-to-r from-violet-50 to-purple-50/70 dark:border-violet-800 dark:from-violet-950/45 dark:to-purple-950/25">
-            <h2 className="text-lg font-bold text-violet-950 dark:text-violet-100">Continue with {pendingPlan.title}</h2>
+            <h2 className="text-lg font-bold text-violet-950 dark:text-violet-100">Continue with {plain(pendingPlan.title)}</h2>
             <p className={mutedStyles}>
               Your original planning requirements and task plan are ready. Importing starts a new website draft and
               keeps your current files in saved versions.
@@ -227,12 +232,12 @@ export function WebsiteStudio() {
           <Panel aria-label="Plan changed" className="grid gap-3 border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/40">
             <h2 className="text-lg font-bold text-amber-950 dark:text-amber-100">Plan changed since this draft</h2>
             <p className={mutedStyles}>
-              Planning has updated requirements or tasks for {planUpdate.title}. Re-syncing replaces the plan the agents
+              Planning has updated requirements or tasks for {plain(planUpdate.title)}. Re-syncing replaces the plan the agents
               use. The website below only changes after you design and rebuild it. Your files and saved versions are kept.
             </p>
             <div className="flex flex-wrap gap-2">
               <Button disabled={!!agents.busy} disabledReason="Agents are working. Wait for them or stop them." onClick={resyncPlan}>Re-sync plan</Button>
-              <Button variant="secondary" onClick={() => setPlanUpdate(null)}>Keep this draft&apos;s plan</Button>
+              <Button variant="secondary" onClick={() => { dismissedPlan.current = planFingerprint(planUpdate); setPlanUpdate(null); }}>Keep this draft&apos;s plan</Button>
             </div>
           </Panel>
         )}
@@ -255,7 +260,7 @@ export function WebsiteStudio() {
         )}
         {ws.sourcePlan && (
           <p className={mutedStyles}>
-            Confirmed project: <strong className="text-violet-950 dark:text-violet-100">{ws.sourcePlan.title}</strong> · Requirements and
+            Confirmed project: <strong className="text-violet-950 dark:text-violet-100">{plain(ws.sourcePlan.title)}</strong> · Requirements and
             task plan carried over from ProjectPilot. <Link href="/" className="font-semibold text-violet-700 underline underline-offset-2 dark:text-violet-300">Return to planning</Link>
           </p>
         )}

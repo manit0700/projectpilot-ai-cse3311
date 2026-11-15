@@ -1,6 +1,6 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { requireLiveAccess } from '@/lib/live-access';
+import { liveAccessOpen, requireLiveAccess } from '@/lib/live-access';
 import { documentHtml, validFiles, type SiteFiles } from '@/lib/studio';
 import { failure, readJsonBody, sameOrigin } from '@/lib/api-guard';
 import { findExternalResources } from '@/lib/html-sanitize';
@@ -9,6 +9,8 @@ export const runtime = 'nodejs';
 export const maxDuration = 60;
 export async function POST(request: Request) {
   const denied = requireLiveAccess(request); if (denied) return denied;
+  // Open Live access has no code, so it must never be enough to write to the maintainer's repository.
+  if (liveAccessOpen()) return failure('GitHub publishing is disabled while Live access is open.', 403, 'auth');
   const foreign = sameOrigin(request); if (foreign) return foreign;
   const limited = rateLimited(studioLimiter, request); if (limited) return limited;
   const token = process.env.GITHUB_MCP_TOKEN?.trim();

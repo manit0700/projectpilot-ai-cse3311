@@ -38,7 +38,7 @@ PROJECTPILOT_URL=http://localhost:3314 node scripts/verify-peer-review.mjs
 node scripts/verify-iteration3-live.mjs
 ```
 
-Set PROJECTPILOT_URL if the server uses another address (browser scripts default to http://localhost:3314). The earlier `verify-iteration3-browser.mjs` smoke script is superseded by `verify-peer-review.mjs`. Browser smoke checks use a fresh isolated browser context and do not clear your normal browser's saved project.
+Set PROJECTPILOT_URL if the server uses another address (browser scripts default to http://localhost:3314). The earlier `verify-iteration3-browser.mjs` smoke script was removed; `verify-peer-review.mjs` replaces it. Browser smoke checks use a fresh isolated browser context and do not clear your normal browser's saved project.
 
 ## Behavior and design
 

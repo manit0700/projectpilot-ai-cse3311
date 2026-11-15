@@ -64,7 +64,7 @@ test('GitHub MCP fixes repository and file path, requires explicit publish, and 
     async close() {}
   }
   class Transport { constructor(url, opts) { assert.equal(url.hostname, 'api.githubcopilot.com'); this.options = opts; } }
-  const { POST } = load('src/app/api/studio/github/route.ts', { '@/lib/live-access': { requireLiveAccess: () => null }, '@modelcontextprotocol/sdk/client/index.js': { Client }, '@modelcontextprotocol/sdk/client/streamableHttp.js': { StreamableHTTPClientTransport: Transport } }, { GITHUB_MCP_TOKEN: 'secret', GITHUB_MCP_REPOSITORY: 'owner/repo', GITHUB_MCP_BASE_BRANCH: 'master' });
+  const { POST } = load('src/app/api/studio/github/route.ts', { '@/lib/live-access': { requireLiveAccess: () => null, liveAccessOpen: () => false }, '@modelcontextprotocol/sdk/client/index.js': { Client }, '@modelcontextprotocol/sdk/client/streamableHttp.js': { StreamableHTTPClientTransport: Transport } }, { GITHUB_MCP_TOKEN: 'secret', GITHUB_MCP_REPOSITORY: 'owner/repo', GITHUB_MCP_BASE_BRANCH: 'master' });
   assert.equal((await POST(request({ action: 'publish', files: site }))).status, 400);
   assert.equal((await POST(request({ action: 'connect' }))).status, 200); assert.equal(options.requestInit.headers['X-MCP-Readonly'], 'true');
   const result = await (await POST(request({ action: 'publish', confirm: true, files: site, repository: 'attacker/repo' }))).json();
@@ -193,7 +193,7 @@ test('findExternalResources reports every way a published site could leave its o
 });
 test('studio routes return 400 for malformed JSON and 413 for oversize bodies instead of 502', async () => {
   let calls = 0;
-  const overrides = { '@/lib/live-access': { requireLiveAccess: () => null }, fetch: async () => { calls++; return Response.json({}); } };
+  const overrides = { '@/lib/live-access': { requireLiveAccess: () => null, liveAccessOpen: () => false }, fetch: async () => { calls++; return Response.json({}); } };
   const { POST } = load('src/app/api/studio/route.ts', overrides, { OPENROUTER_API_KEY: 'test' });
   const raw = (body, headers = {}) => new Request('http://localhost/api/studio', { method: 'POST', headers: { origin: 'http://localhost', ...headers }, body });
   assert.equal((await POST(raw('{"stage":'))).status, 400);
@@ -211,7 +211,7 @@ test('studio routes return 400 for malformed JSON and 413 for oversize bodies in
 test('publishing refuses sites with external resources and labels the pull request as self-contained', async () => {
   const calls = [];
   class Client { async connect() {} async listTools() { return { tools: ['create_branch', 'push_files', 'create_pull_request'].map(name => ({ name })) }; } async callTool(call) { calls.push(call); return { content: [{ type: 'text', text: '{"number":7}' }] }; } async close() {} }
-  const { POST } = load('src/app/api/studio/github/route.ts', { '@/lib/live-access': { requireLiveAccess: () => null }, '@modelcontextprotocol/sdk/client/index.js': { Client }, '@modelcontextprotocol/sdk/client/streamableHttp.js': { StreamableHTTPClientTransport: class {} } }, { GITHUB_MCP_TOKEN: 'secret', GITHUB_MCP_REPOSITORY: 'owner/repo' });
+  const { POST } = load('src/app/api/studio/github/route.ts', { '@/lib/live-access': { requireLiveAccess: () => null, liveAccessOpen: () => false }, '@modelcontextprotocol/sdk/client/index.js': { Client }, '@modelcontextprotocol/sdk/client/streamableHttp.js': { StreamableHTTPClientTransport: class {} } }, { GITHUB_MCP_TOKEN: 'secret', GITHUB_MCP_REPOSITORY: 'owner/repo' });
   const rejected = await POST(request({ action: 'publish', confirm: true, files: { ...site, html: '<h1>Hi</h1><script src="https://cdn.example/app.js"></script>' } }));
   assert.equal(rejected.status, 400); const body = await rejected.json(); assert.match(body.error, /self-contained/); assert.equal(body.external.length, 1); assert.equal(calls.length, 0);
   assert.equal((await POST(request({ action: 'publish', confirm: true, files: { ...site, html: '<div onclick="x()">Hi</div>' } }))).status, 400);
@@ -266,4 +266,10 @@ test('studio stays on OpenRouter unless Gemini is the selected provider', async 
     assert.equal((await load('src/app/api/studio/route.ts', { ...unlocked, fetch: fetchStub }, env).POST(request(payload))).status, 200);
   }
   assert.deepEqual(urls, ['https://openrouter.ai/api/v1/chat/completions', 'https://openrouter.ai/api/v1/chat/completions']);
+});
+
+test('GitHub publishing is refused while Live access is open', async () => {
+  const { POST } = load('src/app/api/studio/github/route.ts', { '@/lib/live-access': { requireLiveAccess: () => null, liveAccessOpen: () => true } });
+  const response = await POST(new Request('http://localhost/api/studio/github', { method: 'POST', body: '{}' }));
+  assert.equal(response.status, 403);
 });

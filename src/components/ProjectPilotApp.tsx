@@ -59,7 +59,7 @@ function ExportMenu({ inline }: { inline: boolean }) {
     <details className={inline ? "" : "relative"}>
       <summary className="flex min-h-11 cursor-pointer items-center rounded-xl border border-white/30 bg-white/10 px-4 text-sm font-medium text-white transition hover:bg-white/15">Export</summary>
       <div className={inline ? "mt-2 max-h-[60vh] overflow-auto rounded-xl border border-slate-200 bg-white p-2 text-slate-900 dark:border-violet-900 dark:bg-slate-950 dark:text-slate-100" : "absolute right-0 top-full z-30 mt-1 max-h-[70vh] w-[min(34rem,calc(100vw-2rem))] overflow-auto rounded-xl border border-slate-200 bg-white p-2 text-slate-900 shadow-lg dark:border-violet-900 dark:bg-slate-950 dark:text-slate-100"}>
-        <ExportPanel />
+        <ExportPanel variant="purple" />
       </div>
     </details>
   );

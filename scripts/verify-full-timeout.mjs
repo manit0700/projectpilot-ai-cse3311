@@ -29,7 +29,7 @@ const originalFetch = globalThis.fetch, originalKey = process.env.OPENAI_API_KEY
 const brief = 'A study tracker that saves course names and positive study minutes locally';
 let delayed = true, upstreamCalls = 0, abortObserved = false, started;
 try {
-  const access = await page.request.post(`${base}/api/live-access`, { data: { code: process.env.LIVE_ACCESS_CODE || '', consent: true } });
+  const access = await page.request.post(`${base}/api/live-access`, { headers: { origin: base }, data: { code: process.env.LIVE_ACCESS_CODE || '', consent: true } });
   assert.equal(access.status(), 200, 'Private reviewer access must be configured for the selected server');
   process.env.OPENAI_API_KEY = 'test-only-not-a-provider-key';
   globalThis.fetch = async (url, options) => {
@@ -47,7 +47,7 @@ try {
     await route.fulfill({ status: response.status, contentType: 'application/json', body: await response.text() });
   });
   await page.goto(base);
-  await page.getByRole('combobox', { name: 'Agent mode' }).selectOption('live');
+  await page.getByRole('radio', { name: /live/i }).check({ force: true });
   await page.getByRole('textbox', { name: 'Project idea', exact: true }).fill(brief);
   await page.getByRole('textbox', { name: 'Target user', exact: true }).fill('Individual students');
   started = performance.now();
