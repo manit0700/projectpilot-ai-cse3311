@@ -204,7 +204,8 @@ export function ReviewScreen() {
   const retryHelpId = useId();
   // Bulk approval mirrors the per-output rules and is withheld entirely while any output has a conflict.
   const anyConflict = outputs.some((o) => hasConflict({ reviews }, o.id));
-  const approvable = outputs.filter((o) => o.approved !== "approved" && !busy && reviews.some((r) => r.outputId === o.id)
+  // Outputs the student sent back for revision are left alone: bulk approval must not override that decision.
+  const approvable = outputs.filter((o) => o.approved === "pending" && !busy && reviews.some((r) => r.outputId === o.id)
     && !staleTaskIds.includes(o.taskId) && tasks.find((t) => t.id === o.taskId)?.state === "completed");
   const approvedCount = outputs.filter((o) => o.approved === "approved").length;
   const pendingCount = outputs.filter((o) => o.approved === "pending").length;
