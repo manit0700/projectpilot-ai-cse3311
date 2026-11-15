@@ -287,6 +287,7 @@ The implementation has good foundations and meets the specification once the ARI
 export const demoBannerTitle = "Prepared example, not built from your brief";
 export const demoSubject = "Student Study-Session Tracker";
 const shortName = (name?: string) => (name ?? "").replace(/\s+/g, " ").trim().slice(0, 60);
+const cleanTitle = (name?: string) => shortName(name).replace(/(\.{3}|…)$/, "").trim();
 /** The only place the imported project name appears in demo output, and only as an honest label. */
 export function demoBannerText(projectName?: string) {
   const name = shortName(projectName);
@@ -295,7 +296,46 @@ export function demoBannerText(projectName?: string) {
 }
 export const isPreparedDemo = (files: SiteFiles) => files.html === demoFiles.html && files.css === demoFiles.css;
 
-export function demoResult(stage: StudioStage, projectName?: string): StageResult {
+type PlanTask = { order: string; title: string; owner: string };
+/** Reads the approved requirements and task titles back out of the plan text built by createStudioHandoff. */
+export function parsePlan(plan: string): { requirements: string[]; tasks: PlanTask[] } {
+  const afterReq = plan.split("APPROVED REQUIREMENTS")[1] ?? "";
+  const [reqBlock, taskBlock = ""] = afterReq.split("USER-CONFIRMED TASK PLAN");
+  const requirements = reqBlock.split("\n").map((l) => l.match(/^- (.+)$/)?.[1]?.trim()).filter((x): x is string => !!x).slice(0, 12);
+  const tasks: PlanTask[] = [];
+  for (const line of taskBlock.split("\n")) {
+    const m = line.match(/^(\d+)\. (.+) \(([\w-]+)\)$/);
+    if (m) tasks.push({ order: m[1], title: m[2].trim(), owner: m[3] });
+  }
+  return { requirements, tasks: tasks.slice(0, 12) };
+}
+const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+export const planBuildNote = "Demo build from your approved plan: a simple template fills in your requirements and tasks. No AI wrote it. Switch to Live for a real design.";
+/** Design brief for demo mode, taken from the plan instead of the canned example. */
+export function planDesignText(name: string, plan: string) {
+  const { requirements, tasks } = parsePlan(plan);
+  return `> ${planBuildNote}\n\n# ${cleanTitle(name) || "Your project"} — Website specification\n\n## Requirements\n` +
+    (requirements.map((r) => `- ${r}`).join("\n") || "- (none found)") + `\n\n## Tasks\n` +
+    (tasks.map((t) => `${t.order}. ${t.title} (${t.owner})`).join("\n") || "- (none found)") + "\n";
+}
+/** A small working page built from the plan, so plan changes show up in the demo website. */
+export function planSite(name: string, plan: string): SiteFiles {
+  const { requirements, tasks } = parsePlan(plan);
+  const title = esc(cleanTitle(name) || "Your project");
+  const reqs = requirements.map((r, i) => `<li><label><input type="checkbox" data-done id="req-${i}"> <span>${esc(r)}</span></label></li>`).join("");
+  const taskItems = tasks.map((t) => `<li><strong>${esc(t.title)}</strong> <span class="owner">${esc(t.owner)}</span></li>`).join("");
+  return {
+    html: `<main>\n  <h1>${title}</h1>\n  <p class="note">Built from your approved plan.</p>\n  <section aria-labelledby="req-h"><h2 id="req-h">Requirements</h2><ul class="list">${reqs || "<li>No requirements found.</li>"}</ul>\n  <p id="progress" role="status" aria-live="polite"></p></section>\n  <section aria-labelledby="task-h"><h2 id="task-h">Task plan</h2><ol class="list">${taskItems || "<li>No tasks found.</li>"}</ol></section>\n</main>`,
+    css: `body{margin:0;background:#f7f3ff;color:#1e1633;font-family:system-ui,sans-serif}main{max-width:760px;margin:auto;padding:32px 20px}h1{font-size:clamp(28px,6vw,44px);margin:0 0 4px}.note{color:#5b4b8a;margin:0 0 24px}section{background:#fff;border:1px solid #ddd0f7;border-radius:14px;padding:16px 20px;margin-bottom:20px}.list{padding-left:20px;line-height:1.7}ul.list{list-style:none;padding:0}.owner{font-size:12px;background:#ede4ff;border-radius:99px;padding:2px 10px;margin-left:6px}input:focus-visible{outline:3px solid #7c3aed;outline-offset:2px}input:checked+span{text-decoration:line-through;color:#6b6480}`,
+    js: `const boxes=[...document.querySelectorAll("[data-done]")],out=document.querySelector("#progress");function update(){out.textContent=boxes.length?boxes.filter(b=>b.checked).length+" of "+boxes.length+" requirements checked":"";}boxes.forEach(b=>b.addEventListener("change",update));update();`,
+  };
+}
+
+export function demoResult(stage: StudioStage, projectName?: string, plan?: string | null): StageResult {
+  if (plan && parsePlan(plan).requirements.length) {
+    if (stage === "plan") return { text: planDesignText(projectName ?? "", plan), model: demoLabel };
+    if (stage === "build") return { files: planSite(projectName ?? "", plan), model: demoLabel };
+  }
   if (stage === "plan") return { text: `> ${demoBannerTitle}. ${demoBannerText(projectName)}\n\n${demoDesign}`, model: demoLabel };
   if (stage === "build") return { files: demoFiles, model: demoLabel };
   return { text: demoReview, model: demoLabel };

@@ -49,13 +49,13 @@ try {
   assert(await designButton.getAttribute('aria-describedby'), 'disabled buttons explain themselves');
   await page.getByText('Confirm your idea in planning first', { exact: true }).waitFor();
   await page.goto(root);
-  await page.getByRole('button',{name:'Run guided workflow',exact:true}).click();
-  await page.getByRole('heading',{name:'Clarifying questions',exact:true}).waitFor();
-  await page.getByRole('button',{name:'Continue to requirements',exact:true}).click();
+  await page.getByRole('button',{name:'Run guided demo',exact:true}).click();
+  await page.getByRole('heading',{name:"Let's Clarify Your Project",exact:true}).waitFor();
+  await page.getByRole('button',{name:'Generate Requirements →',exact:true}).click();
   await page.getByRole('heading',{name:'Requirements summary',exact:true}).waitFor();
   await page.getByRole('button',{name:/^Approve all/}).click();
-  await page.getByRole('button',{name:/Approve requirements/}).click();
-  await page.getByRole('heading',{name:'Task breakdown',exact:true}).waitFor();
+  await page.getByRole('button',{name:'Generate Task Plan →',exact:true}).click();
+  await page.getByRole('heading',{name:'Task Breakdown',exact:true}).waitFor();
   await page.getByRole('button',{name:'Confirm idea & open Website Studio',exact:true}).click();
   await page.getByRole('button',{name:'Import confirmed idea',exact:true}).click();
   await page.getByText(/Confirmed project:/).waitFor();
@@ -85,11 +85,9 @@ try {
   const complete = page.getByText(/The bounded build and source-review cycle is complete/);
   await complete.first().waitFor();
   assert.equal(calls.length, 0, 'demo path sends no model requests');
-  await frame.getByRole('heading', { name: 'Study Session Tracker' }).waitFor();
-  const banner = page.getByTestId('prepared-example-banner');
-  await banner.getByText('Prepared example, not built from your brief', { exact: true }).waitFor();
-  assert((await banner.boundingBox()).y < (await page.locator('iframe').boundingBox()).y, 'banner sits above the preview');
-  assert((await banner.textContent()).includes('not generated from your project'), 'banner names the imported project honestly');
+  await frame.getByRole('heading', { name: 'Task plan' }).waitFor();
+  assert.equal(await page.getByTestId('prepared-example-banner').count(), 0, 'demo build comes from the plan, not the canned example');
+  assert.equal(await frame.getByText('Study Session Tracker').count(), 0, 'demo website is not the canned example');
   assert.equal(await page.getByText(/^LIVE · /).count(), 0, 'demo run did not switch to live');
   assert((await page.getByRole('log', { name: 'Agent handoffs' }).textContent()).includes('Demo · prepared output'));
   await page.getByRole('region',{name:'Agent activity'}).getByText('Completed',{exact:true}).nth(2).waitFor();
@@ -106,7 +104,7 @@ try {
   assert.equal(calls.length, 0, 'no model request happened before consent');
   await page.reload();
   await page.getByText('LIVE · OpenRouter', { exact: true }).waitFor();
-  await frame.getByRole('heading', { name: 'Study Session Tracker' }).waitFor();
+  await frame.getByRole('heading', { name: 'Task plan' }).waitFor();
   await designButton.click();
   await page.waitForFunction(() => [...document.querySelectorAll('textarea')].some(t => t.value.startsWith('Build a portfolio with a title')));
   await page.getByRole('button', { name: 'Approve design & build', exact: true }).click();
@@ -116,8 +114,11 @@ try {
   assert(calls.every(c => c.live === true));
   await page.getByRole('region',{name:'Agent activity'}).getByText('Completed',{exact:true}).first().waitFor();
   assert((await page.getByLabel('Live agent response').textContent()).includes('improve the title'));
-  await frame.getByRole('button', { name: 'Contact', exact: true }).click();
-  await frame.getByText('Contact clicked', { exact: true }).waitFor();
+  // The sandboxed iframe can finish loading just after it first renders, so retry the click until its script responds.
+  for (let attempt = 0; ; attempt++) {
+    await frame.getByRole('button', { name: 'Contact', exact: true }).click();
+    try { await frame.getByText('Contact clicked', { exact: true }).waitFor({ timeout: 3000 }); break; } catch (error) { if (attempt >= 5) throw error; }
+  }
   await page.getByLabel('Ask for a change').fill('Add a student project list');
   await page.getByLabel('Automatic review rounds').selectOption('0');
   await page.getByRole('button', { name: 'Revise with agents' }).click();
@@ -125,20 +126,20 @@ try {
   await page.waitForFunction(() => document.querySelector('textarea[placeholder^="Make the header"]').value === '');
   assert.equal(calls[5].feedback, 'Add a student project list');
   const downloadPromise = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Download website', exact: true }).click();
+  await page.getByRole('button', { name: 'Download website ↓', exact: true }).click();
   const download = await downloadPromise; assert.equal(download.suggestedFilename(), 'projectpilot-website.html');
   const downloaded = await fs.readFile(await download.path(), 'utf8');
   assert(downloaded.includes('Agent-built portfolio')); assert(downloaded.includes('Content-Security-Policy'), 'exported site keeps the self-contained policy');
   await page.reload(); await frame.getByRole('heading', { name: 'Agent-built portfolio' }).waitFor();
   // GitHub MCP: deferred deployments collapse the section; configured ones offer an experimental draft PR.
   githubDown = true;
-  await page.getByText('GitHub through MCP', { exact: true }).click();
+  await page.getByText('◇ GitHub through MCP', { exact: true }).click();
   await page.getByRole('button', { name: 'Connect GitHub', exact: true }).click();
-  await page.getByText('GitHub through MCP · Not enabled in this deployment', { exact: true }).waitFor();
+  await page.getByText('◇ GitHub through MCP · Not enabled in this deployment', { exact: true }).waitFor();
   assert.equal(await page.getByRole('button', { name: /Create draft pull request/ }).count(), 0);
   githubDown = false;
   await page.reload(); await frame.getByRole('heading', { name: 'Agent-built portfolio' }).waitFor();
-  await page.getByText('GitHub through MCP', { exact: true }).click();
+  await page.getByText('◇ GitHub through MCP', { exact: true }).click();
   await page.getByRole('button', { name: 'Connect GitHub', exact: true }).click();
   await page.getByText('Repository: owner/repo', { exact: true }).waitFor();
   await page.getByRole('button', { name: 'Create draft pull request (experimental)', exact: true }).click();
@@ -175,6 +176,9 @@ try {
   await fs.writeFile('docs/studio-evidence/rendered.html', rendered);
   // Phone width: no horizontal overflow; live output and the code editor sit behind toggles.
   await page.setViewportSize({ width: 375, height: 812 });
+  // The layout switches on a resize listener, so wait for the collapsed phone layout before asserting on it.
+  await page.getByRole('textbox', { name: 'Edit HTML', exact: true }).waitFor({ state: 'detached' });
+  await page.getByLabel('Live agent response').waitFor({ state: 'detached' });
   assert(await noOverflow());
   const small = await page.evaluate(() => [...document.querySelectorAll('main button, header button, header a')].filter(el => el.offsetParent && el.getBoundingClientRect().height < 43.5).map(el => el.textContent.trim()));
   assert.deepEqual(small, [], 'Studio buttons are at least 44px tall');

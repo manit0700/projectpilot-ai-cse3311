@@ -15,12 +15,13 @@ export interface ExportPanelProps {
   /** Render as a collapsible <details> menu instead of an always-open section. */
   compact?: boolean;
   className?: string;
+  variant?: "default" | "purple";
 }
 
 const MAX_IMPORT_BYTES = 8_000_000;
 type ImportResult = { ok: true } | { ok: false; error: string };
 
-export function ExportPanel({ compact = false, className = "" }: ExportPanelProps) {
+export function ExportPanel({ compact = false, className = "", variant = "default" }: ExportPanelProps) {
   const store = useProjectStore();
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -30,6 +31,7 @@ export function ExportPanel({ compact = false, className = "" }: ExportPanelProp
   const importProject = (store as unknown as { importProject?: (json: string) => ImportResult }).importProject;
   const latest = (): WorkflowState => (typeof store.exportState === "function" ? store.exportState() : store);
   const hasProject = Boolean(store.project.id);
+  const purple = variant === "purple";
 
   function download(item: ExportItem) {
     setMessage(""); setError("");
@@ -63,22 +65,25 @@ export function ExportPanel({ compact = false, className = "" }: ExportPanelProp
 
   const body = (
     <div className={compact ? "mt-3" : ""}>
-      <p className="text-sm text-slate-600">Available at any step. Unfinished plans are marked as drafts.</p>
+      <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">Available at any step. Unfinished plans are marked as drafts.</p>
       {(Object.keys(EXPORT_GROUPS) as ExportGroup[]).map((group) => (
         <section key={group} className="mt-4" aria-labelledby={`export-group-${group}`}>
-          <h3 id={`export-group-${group}`} className="text-sm font-semibold uppercase tracking-wide text-slate-600">{EXPORT_GROUPS[group]}</h3>
-          <ul className="mt-2 space-y-2">
+          <h3 id={`export-group-${group}`} className={`text-sm font-bold uppercase tracking-[.12em] ${purple ? "text-violet-800 dark:text-violet-200" : "text-slate-600 dark:text-slate-300"}`}>{EXPORT_GROUPS[group]}</h3>
+          <ul className={purple ? "mt-2 grid gap-3 sm:grid-cols-2" : "mt-2 space-y-2"}>
             {EXPORT_ITEMS.filter((item) => item.group === group).map((item) => {
               const reason = item.unavailable(store);
               return (
-                <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2">
-                  <div className="min-w-0 flex-1 basis-60">
-                    <div className="font-medium text-slate-900">{item.label}</div>
-                    <p className="text-sm text-slate-600">{reason ?? item.description}</p>
+                <li key={item.id} className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-white px-3 py-3 dark:bg-slate-950 ${purple ? "border-violet-100 shadow-[0_7px_18px_rgba(91,33,182,0.06)] dark:border-violet-900" : "border-slate-200 dark:border-slate-700"}`}>
+                  <div className="flex min-w-0 flex-1 basis-60 items-start gap-3">
+                    {purple && <span aria-hidden="true" className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-lg text-violet-700 dark:bg-violet-900 dark:text-violet-200">{exportIcon(item.id)}</span>}
+                    <div className="min-w-0">
+                      <div className="font-semibold text-slate-900 dark:text-slate-100">{item.label}</div>
+                      <p className={`mt-1 text-sm leading-relaxed ${reason ? "text-amber-800 dark:text-amber-300" : "text-slate-600 dark:text-slate-300"}`}>{reason ?? item.description}</p>
+                    </div>
                   </div>
                   <button type="button" disabled={Boolean(reason)} onClick={() => download(item)} aria-label={`Download ${item.label}`}
-                    className="min-h-11 rounded-xl border border-teal-700 px-4 py-2 text-sm font-semibold text-teal-800 hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-50">
-                    Download
+                    className={purple ? "min-h-11 rounded-xl border border-violet-300 bg-white px-4 py-2 text-sm font-bold text-violet-800 transition hover:border-violet-500 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-violet-800 dark:bg-slate-950 dark:text-violet-200 dark:hover:bg-violet-950" : "min-h-11 rounded-xl border border-teal-700 px-4 py-2 text-sm font-semibold text-teal-800 hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-teal-200"}>
+                    Download ↓
                   </button>
                 </li>
               );
@@ -88,46 +93,55 @@ export function ExportPanel({ compact = false, className = "" }: ExportPanelProp
       ))}
 
       <section className="mt-4" aria-labelledby="export-import">
-        <h3 id="export-import" className="text-sm font-semibold uppercase tracking-wide text-slate-600">Restore a backup</h3>
-        <div className="mt-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
-          <p className="text-sm text-slate-600">Import a plan.json you downloaded earlier to continue on this browser.</p>
+        <h3 id="export-import" className={`text-sm font-bold uppercase tracking-[.12em] ${purple ? "text-violet-800 dark:text-violet-200" : "text-slate-600 dark:text-slate-300"}`}>Restore a backup</h3>
+        <div className={`mt-2 rounded-xl border bg-white px-4 py-3 dark:bg-slate-950 ${purple ? "border-violet-100 dark:border-violet-900" : "border-slate-200 dark:border-slate-700"}`}>
+          <p className="text-sm text-slate-600 dark:text-slate-300">Import a plan.json you downloaded earlier to continue on this browser.</p>
           <input ref={fileInput} type="file" accept=".json,application/json" className="sr-only" id="export-import-file" tabIndex={-1}
             disabled={!importProject || store.busy} onChange={(e) => void chooseFile(e.target.files?.[0])} />
           <button type="button" disabled={!importProject || store.busy} onClick={() => fileInput.current?.click()}
-            className="mt-2 min-h-11 rounded-xl border border-teal-700 px-4 py-2 text-sm font-semibold text-teal-800 hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-50">
+            className={purple ? "mt-3 min-h-11 rounded-xl border border-violet-300 px-4 py-2 text-sm font-bold text-violet-800 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-violet-800 dark:text-violet-200 dark:hover:bg-violet-950" : "mt-2 min-h-11 rounded-xl border border-teal-700 px-4 py-2 text-sm font-semibold text-teal-800 hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-teal-200"}>
             Import plan.json
           </button>
-          {!importProject && <p className="mt-2 text-sm text-slate-600">Import is not available in this version of the app.</p>}
-          {store.busy && importProject && <p className="mt-2 text-sm text-slate-600">Wait for the current run to finish before importing.</p>}
+          {!importProject && <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Import is not available in this version of the app.</p>}
+          {store.busy && importProject && <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Wait for the current run to finish before importing.</p>}
         </div>
         {pending && (
-          <div role="alertdialog" aria-label="Replace the current project" className="mt-2 rounded-xl border border-amber-300 bg-amber-50 p-3">
-            <p className="text-sm text-amber-950">Importing {pending.name} replaces the project in this browser. Download a backup first if you want to keep it.</p>
+          <div role="alertdialog" aria-label="Replace the current project" className="mt-2 rounded-xl border border-amber-300 bg-amber-50 p-3 dark:border-amber-700 dark:bg-amber-950/40">
+            <p className="text-sm text-amber-950 dark:text-amber-100">Importing {pending.name} replaces the project in this browser. Download a backup first if you want to keep it.</p>
             <div className="mt-2 flex flex-wrap gap-2">
-              <button type="button" onClick={() => download(EXPORT_ITEMS.find((i) => i.id === "plan-json")!)} className="min-h-11 rounded-xl border border-slate-400 bg-white px-4 py-2 text-sm font-semibold text-slate-900">Download current backup</button>
+              <button type="button" onClick={() => download(EXPORT_ITEMS.find((i) => i.id === "plan-json")!)} className="min-h-11 rounded-xl border border-slate-400 bg-white px-4 py-2 text-sm font-semibold text-slate-900 dark:bg-slate-950 dark:border-slate-500 dark:text-slate-50">Download current backup</button>
               <button type="button" onClick={() => runImport(pending.text, pending.name)} className="min-h-11 rounded-xl bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800">Replace with imported plan</button>
-              <button type="button" onClick={() => { setPending(null); if (fileInput.current) fileInput.current.value = ""; }} className="min-h-11 rounded-xl border border-slate-400 bg-white px-4 py-2 text-sm font-semibold text-slate-900">Cancel</button>
+              <button type="button" onClick={() => { setPending(null); if (fileInput.current) fileInput.current.value = ""; }} className="min-h-11 rounded-xl border border-slate-400 bg-white px-4 py-2 text-sm font-semibold text-slate-900 dark:bg-slate-950 dark:border-slate-500 dark:text-slate-50">Cancel</button>
             </div>
           </div>
         )}
       </section>
-      <p role="status" className="mt-3 text-sm text-teal-900">{message}</p>
-      {error && <p role="alert" className="mt-1 text-sm text-rose-800">{error}</p>}
+      <p role="status" className={`mt-3 text-sm ${purple ? "text-violet-900 dark:text-violet-200" : "text-teal-900 dark:text-teal-200"}`}>{message}</p>
+      {error && <p role="alert" className="mt-1 text-sm text-rose-800 dark:text-rose-300">{error}</p>}
     </div>
   );
 
   if (compact) {
     return (
-      <details className={`rounded-xl border border-slate-200 bg-slate-50 p-3 ${className}`}>
-        <summary className="min-h-9 cursor-pointer text-sm font-semibold text-slate-900">Export &amp; backup</summary>
+      <details className={`rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900 ${className}`}>
+        <summary className="min-h-9 cursor-pointer text-sm font-semibold text-slate-900 dark:text-slate-100">Export &amp; backup</summary>
         {body}
       </details>
     );
   }
   return (
-    <section className={`rounded-xl border border-slate-200 bg-slate-50 p-4 ${className}`} aria-labelledby="export-panel-title">
-      <h2 id="export-panel-title" className="text-lg font-semibold text-slate-900">Export and backup</h2>
+    <section className={`${purple ? "rounded-2xl border border-violet-200 bg-violet-50/55 p-5 dark:border-violet-900 dark:bg-violet-950/25" : "rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900"} ${className}`} aria-labelledby="export-panel-title">
+      <h2 id="export-panel-title" className={`text-xl font-bold ${purple ? "text-violet-950 dark:text-violet-100" : "text-slate-900 dark:text-slate-100"}`}>{purple ? "Export Your Project" : "Export and backup"}</h2>
       {body}
     </section>
   );
+}
+
+function exportIcon(id: string) {
+  if (id === "markdown" || id === "disclosure") return "▤";
+  if (id === "spec" || id === "code") return "⌘";
+  if (id.startsWith("issues")) return "◇";
+  if (id.startsWith("log")) return "≡";
+  if (id === "share") return "↗";
+  return "↓";
 }

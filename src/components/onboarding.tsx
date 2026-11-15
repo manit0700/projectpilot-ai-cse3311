@@ -30,14 +30,14 @@ export function OnboardingStrip() {
     window.dispatchEvent(new Event(EVENT));
   };
   return (
-    <section aria-labelledby="onboarding-title" className="mb-3 rounded-xl border border-teal-200 bg-teal-50 px-3 pb-2 pt-1 sm:mb-5 sm:p-4">
+    <section aria-labelledby="onboarding-title" className="mb-3 rounded-2xl border border-violet-200 bg-white/70 px-3 pb-2 pt-1 shadow-sm backdrop-blur-sm dark:border-violet-900 dark:bg-slate-950/70 sm:mb-5 sm:p-4">
       <div className="flex items-start justify-between gap-3">
-        <h2 id="onboarding-title" className="text-base font-semibold text-teal-950">How ProjectPilot works</h2>
-        <button type="button" onClick={dismiss} className="min-h-11 min-w-11 rounded-lg px-2 text-sm font-medium text-teal-900 underline underline-offset-2 hover:bg-teal-100">Got it</button>
+        <h2 id="onboarding-title" className="text-base font-semibold text-violet-950 dark:text-violet-100">How ProjectPilot works</h2>
+        <button type="button" onClick={dismiss} className="min-h-11 min-w-11 rounded-lg px-2 text-sm font-medium text-violet-800 underline underline-offset-2 hover:bg-violet-100 dark:text-violet-200 dark:hover:bg-violet-950">Got it</button>
       </div>
       <ol className="-mt-1 flex flex-wrap gap-x-4 sm:mt-1 sm:grid sm:grid-cols-3 sm:gap-3">
         {STEPS.map((step, i) => (
-          <li key={step.title} className="flex items-baseline gap-2 text-sm text-teal-950">
+          <li key={step.title} className="flex items-baseline gap-2 text-sm text-violet-950 dark:text-violet-100">
             <span aria-hidden="true" className="font-mono font-semibold">{i + 1}</span>
             <span><span className="font-semibold"><span className="sm:hidden">{step.short}</span><span className="hidden sm:inline">{step.title}</span></span><span className="hidden sm:inline"> · {step.detail}</span></span>
           </li>

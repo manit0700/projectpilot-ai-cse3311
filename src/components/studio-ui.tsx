@@ -3,16 +3,18 @@ import { useId, useSyncExternalStore, type ButtonHTMLAttributes, type HTMLAttrib
 
 // Shared Website Studio primitives that reuse the planning app's visual language.
 const base = "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm " +
-  "font-semibold disabled:cursor-not-allowed disabled:opacity-50";
+  "font-semibold transition motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-50";
 export const buttonStyles = {
-  primary: `${base} bg-teal-700 text-white hover:bg-teal-800`,
-  secondary: `${base} border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 ` +
-    "aria-pressed:border-teal-700 aria-pressed:ring-1 aria-pressed:ring-teal-700",
+  primary: `${base} bg-gradient-to-r from-violet-700 to-purple-600 text-white shadow-[0_8px_20px_rgba(109,40,217,0.2)] hover:from-violet-800 hover:to-purple-700`,
+  secondary: `${base} border border-violet-200 bg-white text-violet-800 hover:border-violet-400 hover:bg-violet-50 dark:bg-slate-950 dark:border-violet-800 dark:text-violet-200 ` +
+    "aria-pressed:border-violet-600 aria-pressed:bg-violet-100 aria-pressed:ring-1 aria-pressed:ring-violet-600 dark:border-violet-800 dark:bg-slate-950 dark:text-violet-200 dark:hover:bg-violet-950",
 };
-export const mutedStyles = "text-sm leading-relaxed text-slate-600";
-export const labelStyles = "block text-sm font-semibold text-slate-800";
-export const fieldStyles = "mt-2 block w-full min-w-0 rounded-xl border border-slate-300 bg-white p-3 " +
-  "text-base font-normal leading-relaxed text-slate-900 disabled:bg-slate-50 read-only:bg-slate-50";
+export const mutedStyles = "text-sm leading-relaxed text-slate-600 dark:text-slate-300";
+export const labelStyles = "block text-sm font-semibold text-violet-950 dark:text-violet-100";
+export const fieldStyles = "mt-2 block w-full min-w-0 rounded-xl border border-violet-200 bg-white p-3 dark:bg-slate-950 dark:border-violet-800 " +
+  "text-base font-normal leading-relaxed text-slate-900 outline-none transition placeholder:text-slate-400 dark:text-slate-50 " +
+  "focus:border-violet-500 focus:ring-4 focus:ring-violet-200/60 disabled:bg-violet-50/60 read-only:bg-violet-50/60 " +
+  "dark:border-violet-800 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-violet-900 dark:disabled:bg-violet-950/20 dark:read-only:bg-violet-950/20";
 export const unlockHint = "Unlock live agents above to enable";
 export const busyHint = "Agents are working. Wait for them or stop them.";
 
@@ -34,14 +36,14 @@ export function Button({ variant = "primary", disabledReason, disabled, classNam
   return (
     <div className="inline-flex max-w-full flex-col gap-1">
       {button}
-      <p id={id} className="max-w-72 text-sm text-slate-600">{disabledReason}</p>
+      <p id={id} className="max-w-72 text-sm text-slate-600 dark:text-slate-300">{disabledReason}</p>
     </div>
   );
 }
 
 export function Panel({ children, className = "", ...rest }: HTMLAttributes<HTMLElement>) {
   return (
-    <section className={`min-w-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm ${className}`} {...rest}>
+    <section className={`min-w-0 rounded-[1.75rem] border border-violet-100 bg-white/95 p-5 shadow-[0_16px_42px_rgba(91,33,182,0.09)] dark:border-violet-900 dark:bg-slate-950/95 ${className}`} {...rest}>
       {children}
     </section>
   );
