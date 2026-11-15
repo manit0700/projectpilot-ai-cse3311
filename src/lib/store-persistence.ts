@@ -57,6 +57,8 @@ function restoreParsed(saved: { version?: number; state?: WorkflowState; mode?: 
   validateShape(restored);
   // Work interrupted mid-run cannot be trusted as complete: mark it retryable.
   restored.tasks = restored.tasks.map((t) => (t.state === "in_progress" || (restored.project.status === "revising" && restored.revisionTaskIds.includes(t.id))) ? { ...t, state: "failed" } : t);
+  // Earlier Live plans stored task constraints as a list; the Task type is a string.
+  restored.tasks = restored.tasks.map((t) => (Array.isArray(t.constraints as unknown) ? { ...t, constraints: (t.constraints as unknown as string[]).filter((c) => typeof c === "string" && c.trim()).join("; ") } : t));
   restored.agents = AGENTS;
   if (["agents_running", "revising"].includes(restored.project.status)) {
     restored.project = { ...restored.project, status: "review_pending" };

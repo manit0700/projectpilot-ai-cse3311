@@ -150,8 +150,14 @@ export function taskRefMap(s: WorkflowState): Map<string, string> {
 export function dependencyLabels(s: WorkflowState, task: Task): string[] {
   return task.dependencies.map((id) => s.tasks.find((t) => t.id === id)).filter((t): t is Task => Boolean(t)).map(taskTitle);
 }
+/** Text for a field that older saves may hold as a list (Live task constraints were a string[] before they were normalised). */
+export function asText(value: unknown): string {
+  if (Array.isArray(value)) return value.filter((v) => typeof v === "string" && v.trim()).join("; ");
+  return typeof value === "string" ? value : value == null ? "" : String(value);
+}
 /** Replace internal task, requirement and output ids inside free text with TASK-NN / REQ-NN. */
-export function scrubIds(value: string, s: WorkflowState): string {
+export function scrubIds(input: unknown, s: WorkflowState): string {
+  const value = asText(input);
   const replacements = new Map<string, string>();
   for (const t of s.tasks) replacements.set(t.id, taskCode(t));
   s.requirements.forEach((r, i) => replacements.set(r.id, requirementRef(i)));

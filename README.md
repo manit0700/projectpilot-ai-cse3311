@@ -80,7 +80,7 @@ If `AI_PROVIDER` is unset, the first of OpenRouter, Gemini, OpenAI with a key is
 
 **Free-tier budget.** Gemini's free tier has a per-day cap on each model: in testing, every listed model returned 429 after about 60 requests in one day. OpenRouter free is 50 requests per day. A full Live project costs about 14 requests, so plan for roughly three to four Live projects per day on one free key, and use Demo for rehearsals.
 
-**Access.** `LIVE_ACCESS_CODE` (20+ characters, required in production) gates Live API; the experimental GitHub MCP block is off unless its three variables are set.
+**Access.** `LIVE_ACCESS_CODE` (20+ characters, required in production) gates Live API, unless `LIVE_ACCESS_OPEN=true` is set, which opens Live to anyone who finds the site (consent is still required and the per-IP rate limit still applies); the experimental GitHub MCP block is off unless its three variables are set.
 
 **Timeouts.** Each route shares one time budget across every model and provider attempt: manager 52 s (route limit 60 s), specialists 250 s with up to 120 s per attempt (route limit 300 s on Vercel), Website Studio 105 s with up to 60 s per attempt (route limit 120 s). See `ROUTE_BUDGETS` in `src/lib/provider-chain.ts`.
 

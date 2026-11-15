@@ -15,6 +15,9 @@ function same(a: string, b: string) {
 function cookieKey(code: string) { return createHmac("sha256", code).update("projectpilot-cookie").digest(); }
 function signature(value: string, code: string) { return createHmac("sha256", cookieKey(code)).update(value).digest("hex"); }
 function production() { return process.env.NODE_ENV === "production"; }
+// Explicit opt-in to run Live without an access code, even in production. Anyone who can reach the site can then
+// spend the provider quota, so it must be set deliberately (LIVE_ACCESS_OPEN=true); an unset or other value keeps the gate.
+export function liveAccessOpen() { return process.env.LIVE_ACCESS_OPEN?.trim().toLowerCase() === "true"; }
 let warned = false;
 function codeTooShort(code: string) {
   if (!production() || code.length >= minimumProductionCodeLength) return false;
@@ -23,14 +26,16 @@ function codeTooShort(code: string) {
 }
 // Returns the usable access code, or null when none is set or it is too weak for production.
 function usableCode(): string | null {
+  if (liveAccessOpen()) return null;
   const code = process.env.LIVE_ACCESS_CODE?.trim();
   if (!code || codeTooShort(code)) return null;
   return code;
 }
-export function liveAccessEnabled() { return Boolean(process.env.LIVE_ACCESS_CODE?.trim()); }
+export function liveAccessEnabled() { return !liveAccessOpen() && Boolean(process.env.LIVE_ACCESS_CODE?.trim()); }
 // True when the gate can actually be unlocked (code present and strong enough for this environment).
 export function liveAccessConfigured() { return usableCode() !== null; }
 export function hasLiveAccess(request: Request) {
+  if (liveAccessOpen()) return true;
   const key = usableCode();
   // Development can run without a gate. Production fails closed when unconfigured or misconfigured.
   if (!key) return !liveAccessEnabled() && !production();
@@ -44,8 +49,9 @@ export function requireLiveAccess(request: Request): Response | null {
   return failure(liveAccessEnabled() ? "Unlock Live API and accept the data-sharing notice before making live requests." : "Production live access is not configured. Demo mode remains available.", liveAccessEnabled() ? 401 : 503, "auth");
 }
 export function unlockLive(code: unknown, consent: unknown, request: Request): Response {
-  const configured = process.env.LIVE_ACCESS_CODE?.trim();
-  if (!configured && production()) return failure("Live access is not configured.", 503, "auth");
+  const open = liveAccessOpen();
+  const configured = open ? undefined : process.env.LIVE_ACCESS_CODE?.trim();
+  if (!configured && production() && !open) return failure("Live access is not configured.", 503, "auth");
   if (configured && codeTooShort(configured)) return failure(`Live access is misconfigured: LIVE_ACCESS_CODE must be at least ${minimumProductionCodeLength} characters.`, 503, "auth");
   if (consent !== true) return failure("Accept the data-sharing notice to use Live API.", 400, "invalid");
   if (configured && (typeof code !== "string" || code.length > 512 || !same(code, configured))) return failure("Access code is incorrect. Ask your project owner for access.", 401, "auth");

@@ -66,7 +66,7 @@ export function normalizeManagerItems(stage: ManagerStage, value: unknown, proje
       return { id, projectId, text: raw.text, priority: raw.priority, acceptance: acceptanceList(raw.acceptance), approvalStatus: "pending" };
     }
     if (![raw.id, raw.title, raw.description, raw.expectedOutput].every(text) || !Array.isArray(raw.dependencies) || !raw.dependencies.every(text) || !Array.isArray(raw.constraints) || !raw.constraints.every(text)) throw new Error("Invalid task fields.");
-    return { id: raw.id, projectId, title: raw.title, description: raw.description, ownerAgent: raw.ownerAgent, dependencies: raw.dependencies, expectedOutput: raw.expectedOutput, constraints: raw.constraints, state: "queued", order: index + 1 };
+    return { id: raw.id, projectId, title: raw.title, description: raw.description, ownerAgent: raw.ownerAgent, dependencies: raw.dependencies, expectedOutput: raw.expectedOutput, constraints: raw.constraints.join("; "), state: "queued", order: index + 1 };
   });
   if (stage === "tasks") {
     const error = validateTasks(items as Task[]);
