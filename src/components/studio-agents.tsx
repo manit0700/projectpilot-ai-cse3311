@@ -26,18 +26,18 @@ export function ModePill({ live, provider }: { live: boolean; provider: "gemini"
 export function AgentCards({ activity }: { activity: Activity }) {
   const icons: Record<StudioStage, string> = { plan: "✦", build: "</>", review: "⌕" };
   return (
-    <section className="grid gap-3 sm:grid-cols-3" aria-label="Agent activity" aria-live="polite">
+    <section className="grid grid-cols-3 gap-2 sm:gap-3" aria-label="Agent activity" aria-live="polite">
       {agentNames.map(([id, name]) => {
         const active = isWorking(activity[id].status);
         return (
           <article key={id} data-working={active}
-            className={`min-w-0 rounded-[1.5rem] border bg-white/95 p-4 shadow-[0_12px_30px_rgba(91,33,182,0.08)] dark:bg-slate-950/95 ${
+            className={`min-w-0 rounded-2xl border bg-white/95 p-2.5 shadow sm:p-3-[0_12px_30px_rgba(91,33,182,0.08)] dark:bg-slate-950/95 ${
               active ? "border-violet-500 ring-2 ring-violet-300/70 dark:ring-violet-800" : "border-violet-100 dark:border-violet-900"}`}>
-            <div className="flex items-start gap-3">
+            <div className="flex flex-col items-start gap-2 sm:flex-row sm:gap-3">
               <span aria-hidden="true" className={`flex size-10 shrink-0 items-center justify-center rounded-xl font-mono text-sm font-bold ${active ? "bg-violet-600 text-white" : "bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-200"}`}>{icons[id]}</span>
-              <div className="min-w-0"><h2 className="text-base font-bold text-violet-950 dark:text-violet-100">{name}</h2><p className={`mt-1 inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${statusTone(activity[id].status)}`}>{activity[id].status}</p></div>
+              <div className="min-w-0"><h2 className="text-sm font-bold leading-snug text-violet-950 sm:text-base dark:text-violet-100">{name}</h2><p className={`mt-1 inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${statusTone(activity[id].status)}`}>{activity[id].status}</p></div>
             </div>
-            <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{activity[id].task}</p>
+            <p className="mt-2 hidden text-sm sm:line-clamp-2 leading-relaxed text-slate-600 dark:text-slate-300">{activity[id].task}</p>
           </article>
         );
       })}

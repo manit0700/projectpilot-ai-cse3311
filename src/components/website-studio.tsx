@@ -161,6 +161,8 @@ export function WebsiteStudio() {
     update((w) => ({ versions: [...w.versions.slice(-7), { name: "Before restore", files: w.files }], files: version.files }));
     setPreview(version.files);
   }
+  // The output box stays closed until an agent has something to show, so the website preview sits higher on the page.
+  const liveDefault = wide && (live || !!agents.busy || !!agents.liveText);
   const reviewReason = agents.busy ? "Agents are working. Wait for them or stop them."
     : !ws.design.trim() ? "Design the website from the imported plan first" : undefined;
 
@@ -188,7 +190,7 @@ export function WebsiteStudio() {
             : "Demo mode · Prepared output from a real earlier run."}
         </p>
       </header>
-      <main id="main-content" className="mx-auto w-full max-w-[100rem] min-w-0 space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+      <main id="main-content" className="mx-auto w-full max-w-[100rem] min-w-0 space-y-4 px-4 py-5 sm:px-6 sm:py-6">
         <div className="flex items-start gap-4">
           <span aria-hidden="true" className="mt-1 flex size-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-purple-500 text-2xl text-white shadow-[0_10px_24px_rgba(109,40,217,0.24)]">⌘</span>
           <div>
@@ -258,7 +260,7 @@ export function WebsiteStudio() {
           </p>
         )}
         <AgentCards activity={activity} />
-        <LiveResponse open={liveOpen ?? wide} onToggle={() => setLiveOpen(!(liveOpen ?? wide))}
+        <LiveResponse open={liveOpen ?? liveDefault} onToggle={() => setLiveOpen(!(liveOpen ?? liveDefault))}
           model={agents.liveModel} text={agents.liveText} live={live} />
         {agents.error && (
           <p role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm leading-relaxed text-rose-900 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-100">
