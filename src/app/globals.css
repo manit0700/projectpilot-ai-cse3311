@@ -5,59 +5,21 @@
   --background: #f4f7f8;
   --foreground: #0f172a;
   --pp-surface: #ffffff;
-  --pp-focus: #0f766e;
+  --pp-focus: #6d28d9;
   color-scheme: light;
 }
 
-/* Restrained dark palette. Tailwind utilities read these theme variables, so remapping the
-   slate scale and the tinted ends of the teal/amber/rose/emerald scales re-themes every screen
-   (including Website Studio) without touching component classes. teal-600..800 stay as the
-   brand fill behind white text; text-only uses of those shades are lifted below. */
+/* Dark mode. Components carry explicit dark: variants (violet/slate), so the Tailwind colour scales
+   are NOT remapped here: remapping slate-300 etc. would make `dark:text-slate-300` dark on dark.
+   Only a few safety nets for elements that have no dark: variant are kept below. */
 @media (prefers-color-scheme: dark) {
   :root {
     --pp-bg: #0b1117;
     --background: #0b1117;
     --foreground: #e6edf3;
     --pp-surface: #111a22;
-    --pp-focus: #5eead4;
+    --pp-focus: #c4b5fd;
     color-scheme: dark;
-
-    --color-slate-50: #16212b;
-    --color-slate-100: #1c2935;
-    --color-slate-200: #2a3947;
-    --color-slate-300: #3d4f60;
-    --color-slate-400: #8a9bb0;
-    --color-slate-500: #9fb0c3;
-    --color-slate-600: #b0bfd0;
-    --color-slate-700: #c8d3df;
-    --color-slate-800: #dce4ec;
-    --color-slate-900: #eef2f6;
-    --color-slate-950: #f8fafc;
-
-    --color-teal-50: #0f2a2b;
-    --color-teal-100: #133b3b;
-    --color-teal-200: #1f5a57;
-    --color-teal-300: #2f8077;
-    --color-teal-900: #bff1e8;
-    --color-teal-950: #d9f7f2;
-
-    --color-amber-50: #2a2210;
-    --color-amber-100: #3a2e12;
-    --color-amber-200: #5a4817;
-    --color-amber-300: #7c6320;
-    --color-amber-800: #d8a53c;
-    --color-amber-900: #fbd98b;
-    --color-amber-950: #fdebc0;
-
-    --color-rose-50: #2c151a;
-    --color-rose-100: #3c1a21;
-    --color-rose-200: #5c2a33;
-    --color-rose-300: #84404c;
-    --color-rose-800: #fda4af;
-    --color-rose-900: #fecdd3;
-
-    --color-emerald-100: #12332a;
-    --color-emerald-800: #7ee2b5;
   }
 
   .bg-white,

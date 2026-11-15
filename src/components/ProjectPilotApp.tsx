@@ -58,7 +58,7 @@ function ExportMenu({ inline }: { inline: boolean }) {
   return (
     <details className={inline ? "" : "relative"}>
       <summary className="flex min-h-11 cursor-pointer items-center rounded-xl border border-white/30 bg-white/10 px-4 text-sm font-medium text-white transition hover:bg-white/15">Export</summary>
-      <div className={inline ? "mt-2" : "absolute right-0 top-full z-30 mt-1 max-h-[70vh] w-[min(34rem,calc(100vw-2rem))] overflow-auto rounded-xl border border-slate-200 bg-white p-2 shadow-lg"}>
+      <div className={inline ? "mt-2 max-h-[60vh] overflow-auto rounded-xl border border-slate-200 bg-white p-2 text-slate-900 dark:border-violet-900 dark:bg-slate-950 dark:text-slate-100" : "absolute right-0 top-full z-30 mt-1 max-h-[70vh] w-[min(34rem,calc(100vw-2rem))] overflow-auto rounded-xl border border-slate-200 bg-white p-2 text-slate-900 shadow-lg dark:border-violet-900 dark:bg-slate-950 dark:text-slate-100"}>
         <ExportPanel />
       </div>
     </details>
@@ -118,7 +118,7 @@ function AppShell() {
   const usesPurpleCanvas = isIdea || embedsPurpleSidebar;
 
   return (
-    <div className={`flex min-h-screen flex-col text-slate-900 ${usesPurpleCanvas ? "bg-[radial-gradient(circle_at_14%_12%,rgba(255,255,255,0.95),transparent_27%),linear-gradient(135deg,#f7f1ff_0%,#eee2ff_55%,#faf7ff_100%)] dark:bg-[radial-gradient(circle_at_14%_12%,rgba(91,33,182,0.18),transparent_27%),linear-gradient(135deg,#130d21_0%,#1d1230_55%,#0f0b18_100%)]" : "bg-[var(--pp-bg)]"}`}>
+    <div className={`flex min-h-screen flex-col text-slate-900 dark:text-slate-50 ${usesPurpleCanvas ? "bg-[radial-gradient(circle_at_14%_12%,rgba(255,255,255,0.95),transparent_27%),linear-gradient(135deg,#f7f1ff_0%,#eee2ff_55%,#faf7ff_100%)] dark:bg-[radial-gradient(circle_at_14%_12%,rgba(91,33,182,0.18),transparent_27%),linear-gradient(135deg,#130d21_0%,#1d1230_55%,#0f0b18_100%)]" : "bg-[var(--pp-bg)]"}`}>
       <a href="#main-content" className="sr-only focus:not-sr-only focus:mx-4 focus:my-2 focus:rounded-lg focus:bg-white focus:p-3 focus:text-teal-800">Skip to main content</a>
       <HeaderBar
         isLive={isLive}
@@ -134,10 +134,11 @@ function AppShell() {
       <div className={`mx-auto w-full space-y-6 px-4 py-4 sm:px-6 sm:py-8 ${usesPurpleCanvas ? "max-w-[100rem]" : "max-w-7xl"}`}>
         {!embedsPurpleSidebar && <MetricsPanel />}
         <div className={`grid min-w-0 items-start gap-6 ${usesPurpleCanvas ? "" : "lg:grid-cols-[minmax(0,1fr)_300px]"}`}>
-          <main ref={mainRef} id="main-content" tabIndex={-1} className={`scroll-mt-6 min-w-0 ${usesPurpleCanvas ? "" : "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-8"}`}>
-            {workflowNotice && <p role="status" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-relaxed text-amber-950">{workflowNotice}</p>}
+          <main ref={mainRef} id="main-content" tabIndex={-1} className={`scroll-mt-6 min-w-0 ${usesPurpleCanvas ? "" : "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-8 dark:bg-slate-950 dark:border-slate-700"}`}>
+            {workflowNotice && <p role="status" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-relaxed text-amber-950 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-50">{workflowNotice}</p>}
             {hydrated ? <>
-              <div className={needsLiveGate ? "hidden" : undefined}><ScreenRouter />{!usesPurpleCanvas && <BottomNavigation />}</div>
+              {/* Unmounted, not hidden, while gated: screen effects such as answer drafting must not call the model before Live consent. */}
+              {!needsLiveGate && <div><ScreenRouter />{!usesPurpleCanvas && <BottomNavigation />}</div>}
               {needsLiveGate && <div className="rounded-[2rem] border border-violet-200 bg-white/90 p-6 shadow-[0_24px_70px_rgba(91,33,182,0.16)] dark:border-violet-900 dark:bg-slate-950/90 sm:p-10"><LiveAccess provider={provider} onUnlocked={() => setLiveReady(true)} /></div>}
             </> : <p role="status">Loading saved project…</p>}
           </main>

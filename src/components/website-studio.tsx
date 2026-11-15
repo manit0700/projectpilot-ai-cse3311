@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { documentHtml, starter, studioMode, type SiteFiles } from "@/lib/studio";
 import { agentPlan, handoffKey, tidyBrief, validHandoff, type StudioHandoff } from "@/lib/studio-handoff";
+import { planChanged, readSavedPlan, sendFindingsToPlanning } from "@/lib/studio-sync";
 import { LIVE_CONSENT_KEY } from "./live-access";
 import { AgentCards, importedTask, LiveResponse, ModePill } from "./studio-agents";
 import { StudioControls } from "./studio-controls";
@@ -30,6 +31,9 @@ export function WebsiteStudio() {
   const [configured, setConfigured] = useState(false);
   const [provider, setProvider] = useState<"gemini" | "openrouter">("openrouter");
   const [pendingPlan, setPendingPlan] = useState<StudioHandoff | null>(null);
+  // The saved planning project moved on since this draft was imported.
+  const [planUpdate, setPlanUpdate] = useState<StudioHandoff | null>(null);
+  const [syncNote, setSyncNote] = useState("");
   const [rounds, setRounds] = useState(1);
   const [feedback, setFeedback] = useState("");
   const [liveOpen, setLiveOpen] = useState<boolean | null>(null);
@@ -71,16 +75,35 @@ export function WebsiteStudio() {
       }
       if (restored.status === "failed") { setSaveStatus("Autosave paused"); setPersistence("paused"); }
       else { setSaveStatus("Saved in this browser"); setPersistence("ready"); }
+      let incoming: StudioHandoff | null = null;
       try {
-        const incoming = JSON.parse(sessionStorage.getItem(handoffKey) || "null");
-        if (validHandoff(incoming)) setPendingPlan(incoming);
+        const parsed = JSON.parse(sessionStorage.getItem(handoffKey) || "null");
+        if (validHandoff(parsed)) incoming = parsed;
       } catch { /* Ignore unreadable handoff data. */ }
+      // Read the saved planning project directly, so Studio works from any tab and without pressing the hand-off button.
+      const saved = incoming ?? readSavedPlan();
+      const current = restored.status === "restored" ? restored.workspace.sourcePlan : null;
+      if (saved && (!current || current.projectId !== saved.projectId)) setPendingPlan(saved);
+      else if (saved && current && planChanged(current, saved)) setPlanUpdate(saved);
     }, 0);
     fetch("/api/live-access").then((r) => r.json()).then((s) => setAccess(s.authenticated === true)).catch(() => {});
     fetch("/api/manager").then((r) => r.json())
       .then((c) => { setConfigured(c.studioConfigured === true); setProvider(c.studioProvider === "gemini" ? "gemini" : "openrouter"); }).catch(() => {});
     return () => clearTimeout(timer);
   }, []);
+
+  // Planning edits made in another tab arrive through the shared browser storage.
+  useEffect(() => {
+    const source = ws.sourcePlan;
+    if (!source || persistence !== "ready") return;
+    const check = () => {
+      const saved = readSavedPlan();
+      setPlanUpdate(saved && saved.projectId === source.projectId && planChanged(source, saved) ? saved : null);
+    };
+    window.addEventListener("storage", check);
+    window.addEventListener("focus", check);
+    return () => { window.removeEventListener("storage", check); window.removeEventListener("focus", check); };
+  }, [ws.sourcePlan, persistence]);
 
   useEffect(() => {
     if (!versionNote) return;
@@ -109,6 +132,26 @@ export function WebsiteStudio() {
     setPreview(starter); agents.setError("");
     dismissPlan();
   }
+  /** Swaps in the updated plan and keeps every website file. A brief the user edited by hand is left alone. */
+  function resyncPlan() {
+    if (!planUpdate || !ws.sourcePlan) return;
+    const next = planUpdate, previous = ws.sourcePlan;
+    setWs((w) => ({
+      ...w,
+      sourcePlan: next,
+      brief: w.brief === tidyBrief(previous) ? tidyBrief(next) : w.brief,
+      versions: [...w.versions.slice(-7), { name: "Before plan re-sync", files: w.files }],
+      messages: [...w.messages, { role: "Planning → Website team", text: `The planning project changed. The updated requirements and task plan for ${next.title} replace the earlier ones. ` +
+        "Your website files are unchanged. Ask the designer to revise the design, then rebuild." }],
+    }));
+    setPlanUpdate(null);
+    setSyncNote("Plan re-synced. The website below is still the old build. Click Design the website from this plan, then approve to rebuild it.");
+  }
+  const lastReview = [...ws.messages].reverse().find((m) => m.role.startsWith("Reviewer") && m.text.trim());
+  function sendReview() {
+    if (!ws.sourcePlan || !lastReview) return;
+    setSyncNote(sendFindingsToPlanning(lastReview.text, ws.sourcePlan.projectId) ?? "Review added to planning feedback. Open planning and go to the Feedback step to apply it.");
+  }
   function downloadRecovery() {
     const raw = readRecovery();
     if (raw) downloadText("projectpilot-website-studio-recovery.txt", raw);
@@ -122,7 +165,7 @@ export function WebsiteStudio() {
     : !ws.design.trim() ? "Design the website from the imported plan first" : undefined;
 
   return (
-    <div className="flex min-h-screen flex-col bg-[radial-gradient(circle_at_14%_8%,rgba(255,255,255,0.96),transparent_27%),linear-gradient(135deg,#f7f1ff_0%,#eee2ff_55%,#faf7ff_100%)] text-slate-900 dark:bg-[radial-gradient(circle_at_14%_8%,rgba(91,33,182,0.18),transparent_27%),linear-gradient(135deg,#130d21_0%,#1d1230_55%,#0f0b18_100%)]">
+    <div className="flex min-h-screen flex-col bg-[radial-gradient(circle_at_14%_8%,rgba(255,255,255,0.96),transparent_27%),linear-gradient(135deg,#f7f1ff_0%,#eee2ff_55%,#faf7ff_100%)] text-slate-900 dark:bg-[radial-gradient(circle_at_14%_8%,rgba(91,33,182,0.18),transparent_27%),linear-gradient(135deg,#130d21_0%,#1d1230_55%,#0f0b18_100%)] dark:text-slate-50">
       <header className="border-b border-violet-800 bg-gradient-to-r from-[#2d1748] via-[#3c205f] to-[#291640] text-white shadow-[0_10px_32px_rgba(39,19,64,0.24)]">
         <div className="mx-auto flex max-w-[100rem] flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <div className="flex flex-wrap items-center gap-3">
@@ -178,6 +221,19 @@ export function WebsiteStudio() {
             </div>
           </Panel>
         )}
+        {planUpdate && ws.sourcePlan && (
+          <Panel aria-label="Plan changed" className="grid gap-3 border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/40">
+            <h2 className="text-lg font-bold text-amber-950 dark:text-amber-100">Plan changed since this draft</h2>
+            <p className={mutedStyles}>
+              Planning has updated requirements or tasks for {planUpdate.title}. Re-syncing replaces the plan the agents
+              use. The website below only changes after you design and rebuild it. Your files and saved versions are kept.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button disabled={!!agents.busy} disabledReason="Agents are working. Wait for them or stop them." onClick={resyncPlan}>Re-sync plan</Button>
+              <Button variant="secondary" onClick={() => setPlanUpdate(null)}>Keep this draft&apos;s plan</Button>
+            </div>
+          </Panel>
+        )}
         {!ws.sourcePlan && !pendingPlan && (
           <Panel className="grid gap-3 border-violet-200 bg-gradient-to-r from-violet-50 to-purple-50/70 dark:border-violet-800 dark:from-violet-950/45 dark:to-purple-950/25">
             <h2 className="text-lg font-bold text-violet-950 dark:text-violet-100">First, confirm what we are building.</h2>
@@ -187,6 +243,13 @@ export function WebsiteStudio() {
             </p>
             <Link href="/" className={`${buttonStyles.primary} justify-self-start`}>Start with idea confirmation</Link>
           </Panel>
+        )}
+        {syncNote && <p role="status" className={mutedStyles}>{syncNote}</p>}
+        {ws.sourcePlan && lastReview && (
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant="secondary" onClick={sendReview}>Send review to planning feedback</Button>
+            <span className={mutedStyles}>Adds the latest reviewer findings to the planning project as feedback.</span>
+          </div>
         )}
         {ws.sourcePlan && (
           <p className={mutedStyles}>

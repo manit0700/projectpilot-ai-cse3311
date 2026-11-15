@@ -42,15 +42,15 @@ export const IDEA_TEMPLATES: IdeaTemplate[] = [
 
 export function TemplateChips({ onPick }: { onPick: (template: IdeaTemplate) => void }) {
   return (
-    <div className="mt-3 sm:mt-4">
-      <p id="idea-templates-label" className="sr-only text-sm font-medium text-slate-800 sm:not-sr-only">Or start from an example</p>
-      <ul aria-labelledby="idea-templates-label" className="-mx-1 sm:mt-1.5 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible">
+    <div className="mt-3 min-w-0 sm:mt-4">
+      <p id="idea-templates-label" className="sr-only text-sm font-semibold text-slate-800 dark:text-slate-100 sm:not-sr-only">Or start from an example</p>
+      <ul aria-labelledby="idea-templates-label" className="-mx-1 min-w-0 sm:mt-1.5 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible">
         {IDEA_TEMPLATES.map((template) => (
           <li key={template.id} className="shrink-0">
             <button
               type="button"
               onClick={() => onPick(template)}
-              className="min-h-11 whitespace-nowrap rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800 hover:border-teal-700 hover:bg-teal-50"
+              className="min-h-11 whitespace-nowrap rounded-full border border-violet-300 bg-white/80 px-4 py-2 text-sm font-medium text-violet-900 transition hover:border-violet-500 hover:bg-violet-50 dark:border-violet-800 dark:bg-slate-950/70 dark:text-violet-100 dark:hover:bg-violet-950"
             >
               {template.label}
             </button>

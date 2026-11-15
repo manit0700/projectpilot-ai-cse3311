@@ -1,10 +1,12 @@
 "use client";
 
 import { useId, useState } from "react";
+import { TemplateChips, type IdeaTemplate } from "@/components/idea-templates";
 import { OnboardingStrip } from "@/components/onboarding";
 import { ApprovalBar } from "@/components/shell";
 import { useStoreExt } from "@/components/store-ext";
 import { shortProjectTitle } from "@/components/task-handoff";
+import { DEMO_IDEA, DEMO_TARGET_USER } from "@/lib/demo-fixtures";
 import { useProjectStore } from "@/lib/store";
 import { WorkspaceIllustration } from "@/components/workspace-illustration";
 
@@ -40,7 +42,7 @@ function EditIdea({ onDone }: { onDone: () => void }) {
     <label className="block font-semibold text-slate-900 dark:text-slate-100">Target user<input required minLength={3} value={targetUser} onChange={(e) => setTargetUser(e.target.value)} className={FIELD} /></label>
     <p className="text-sm text-slate-700 dark:text-slate-300">Saving may reopen the plan so affected requirements and tasks are reviewed again.</p>
     {error && <p role="alert" className="text-sm text-rose-800 dark:text-rose-300">{error}</p>}
-    <div className="flex flex-wrap gap-2"><button type="submit" className="min-h-11 rounded-xl bg-violet-700 px-5 py-2 font-semibold text-white shadow-md hover:bg-violet-800">Save idea</button><button type="button" onClick={onDone} className="min-h-11 rounded-xl border border-violet-300 bg-white px-5 py-2 text-slate-800 dark:bg-slate-900 dark:text-slate-100">Cancel</button></div>
+    <div className="flex flex-wrap gap-2"><button type="submit" className="min-h-11 rounded-xl bg-violet-700 px-5 py-2 font-semibold text-white shadow-md hover:bg-violet-800">Save idea</button><button type="button" onClick={onDone} className="min-h-11 rounded-xl border border-violet-300 bg-white px-5 py-2 text-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:border-violet-700">Cancel</button></div>
   </form>;
 }
 
@@ -52,7 +54,7 @@ function ModeSelector() {
     <div className="flex flex-wrap items-center justify-between gap-3">
       <p aria-hidden="true" className="px-1 text-sm font-semibold text-slate-900 dark:text-slate-100">Agent mode</p>
       <div className="grid grid-cols-2 rounded-xl bg-white p-1 shadow-sm ring-1 ring-violet-200 dark:bg-slate-950 dark:ring-violet-900">
-        {(["demo", "live"] as const).map((mode) => <label key={mode} className={`cursor-pointer rounded-lg px-4 py-2 text-center text-sm font-semibold transition ${managerMode === mode ? "bg-violet-700 text-white shadow-sm" : "text-slate-600 hover:bg-violet-50 dark:text-slate-300 dark:hover:bg-violet-950"}`}><input type="radio" name="idea-agent-mode" value={mode} checked={managerMode === mode} onChange={() => setManagerMode(mode)} className="sr-only" />{mode === "demo" ? "Demo" : "Live API"}</label>)}
+        {(["demo", "live"] as const).map((mode) => <label key={mode} className={`cursor-pointer rounded-lg px-4 py-2 has-[:focus-visible]:outline has-[:focus-visible]:outline-[3px] has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-violet-600 dark:has-[:focus-visible]:outline-violet-300 text-center text-sm font-semibold transition ${managerMode === mode ? "bg-violet-700 text-white shadow-sm" : "text-slate-600 hover:bg-violet-50 dark:text-slate-300 dark:hover:bg-violet-950"}`}><input type="radio" name="idea-agent-mode" value={mode} checked={managerMode === mode} onChange={() => setManagerMode(mode)} className="sr-only" />{mode === "demo" ? "Demo" : "Live API"}</label>)}
       </div>
     </div>
     <p id={helpId} className="mt-2 text-xs leading-relaxed text-slate-600 dark:text-slate-300">{managerMode === "demo" ? "Prepared responses; no provider key or data sharing required." : "Uses the configured provider. Access and data-sharing consent are required before starting."}</p>
@@ -60,7 +62,7 @@ function ModeSelector() {
 }
 
 function WorkspaceArt() {
-  return <WorkspaceIllustration className="hidden min-h-[48rem] lg:block" priority caption="Start with a clear idea. Your AI team will help shape the plan." />;
+  return <WorkspaceIllustration className="hidden min-h-[48rem] lg:block" caption="Start with a clear idea. Your AI team will help shape the plan." />;
 }
 
 export function IdeaScreen() {
@@ -72,28 +74,31 @@ export function IdeaScreen() {
   const [constitution, setConstitution] = useState("");
   const [editing, setEditing] = useState(false);
   const helpId = useId();
+  const loadDemoText = () => { setIdea(DEMO_IDEA); setTargetUser(DEMO_TARGET_USER); };
+  const pickTemplate = (template: IdeaTemplate) => { setIdea(template.idea); setTargetUser(template.targetUser); };
   const canStart = !busy && idea.trim().length >= 12 && targetUser.trim().length >= 3;
   const start = () => {
     const options = { rubric: rubric.trim() || undefined, constitution: constitution.trim() || undefined };
     startProject(idea, targetUser, options.rubric || options.constitution ? options : undefined);
   };
 
-  if (project.id) return <div className="overflow-hidden rounded-[2rem] border border-violet-200/80 bg-white/90 shadow-[0_24px_70px_rgba(91,33,182,0.14)] dark:border-violet-900 dark:bg-slate-950/90"><div className="grid lg:grid-cols-[minmax(18rem,0.7fr)_minmax(0,1.3fr)]"><WorkspaceArt /><div className="space-y-5 p-6 sm:p-9 lg:p-12">
+  if (project.id) return <div className="overflow-hidden rounded-[2rem] border border-violet-200/80 bg-white/90 shadow-[0_24px_70px_rgba(91,33,182,0.14)] dark:border-violet-900 dark:bg-slate-950/90"><div className="grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(18rem,0.7fr)_minmax(0,1.3fr)]"><WorkspaceArt /><div className="space-y-5 p-6 sm:p-9 lg:p-12">
     <div className="flex size-14 items-center justify-center rounded-2xl bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300"><PaperPlaneIcon /></div>
     <div><p className="text-sm font-semibold uppercase tracking-[0.16em] text-violet-700 dark:text-violet-300">Saved project brief</p><h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl dark:text-white">{shortProjectTitle(project)}</h1></div>
     {editing ? <EditIdea onDone={() => setEditing(false)} /> : <><p className="whitespace-pre-wrap text-lg leading-relaxed text-slate-700 dark:text-slate-200">{project.description}</p><p className="rounded-2xl bg-violet-50 px-4 py-3 text-slate-700 dark:bg-violet-950/40 dark:text-slate-200"><span className="font-semibold">Target user:</span> {project.targetUser}</p>{typeof editIdea === "function" && <button type="button" disabled={busy} onClick={() => setEditing(true)} className="min-h-11 rounded-xl border border-violet-400 px-5 py-2 font-semibold text-violet-800 hover:bg-violet-50 disabled:opacity-50 dark:text-violet-200 dark:hover:bg-violet-950">Edit project brief</button>}</>}
     <p className="text-sm text-slate-600 dark:text-slate-300">Viewing this brief does not change your work. Use Requirements to refine the scope.</p><ApprovalBar approveLabel="View clarifying answers" onApprove={() => goTo("questions")} />
   </div></div></div>;
 
-  return <div><OnboardingStrip /><section className="overflow-hidden rounded-[2rem] border border-violet-200/80 bg-white/90 shadow-[0_24px_70px_rgba(91,33,182,0.16)] backdrop-blur-sm dark:border-violet-900 dark:bg-slate-950/90"><div className="grid lg:grid-cols-[minmax(18rem,0.72fr)_minmax(0,1.55fr)]"><WorkspaceArt /><div className="p-5 sm:p-8 lg:p-10 xl:p-12">
+  return <div><OnboardingStrip /><section className="overflow-hidden rounded-[2rem] border border-violet-200/80 bg-white/90 shadow-[0_24px_70px_rgba(91,33,182,0.16)] backdrop-blur-sm dark:border-violet-900 dark:bg-slate-950/90"><div className="grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(18rem,0.72fr)_minmax(0,1.55fr)]"><WorkspaceArt /><div className="p-5 sm:p-8 lg:p-10 xl:p-12">
     <div className="flex items-start gap-4"><div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-100 to-purple-200 text-violet-700 shadow-sm dark:from-violet-950 dark:to-purple-900 dark:text-violet-200"><PaperPlaneIcon /></div><div><h1 className="text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl xl:text-5xl dark:text-white">Start a New Project</h1><p className="mt-2 text-base leading-relaxed text-slate-600 sm:text-lg dark:text-slate-300">Tell ProjectPilot what you want to build, and your AI team will turn it into a reviewable plan.</p></div></div>
     <div className="mt-7 space-y-5">
-      <label className="block font-semibold text-slate-900 dark:text-slate-100"><span className="flex items-center gap-2"><FieldIcon kind="idea" />Project Idea <span className="text-rose-600" aria-hidden="true">*</span><span className="sr-only">(required)</span></span><textarea aria-label="Project idea" value={idea} onChange={(e) => setIdea(e.target.value)} minLength={12} required rows={3} placeholder="Describe the project you want to build..." className={FIELD} /></label>
-      <label className="block font-semibold text-slate-900 dark:text-slate-100"><span className="flex items-center gap-2"><FieldIcon kind="users" />Target User <span className="text-rose-600" aria-hidden="true">*</span><span className="sr-only">(required)</span></span><input aria-label="Target user" minLength={3} required value={targetUser} onChange={(e) => setTargetUser(e.target.value)} placeholder="Who is the project for? (e.g., students, employees, customers)" className={`${FIELD} min-h-12`} /></label>
+      <label className="block font-semibold text-slate-900 dark:text-slate-100"><span className="flex items-center gap-2"><FieldIcon kind="idea" />Project Idea <span className="text-rose-700 dark:text-rose-300" aria-hidden="true">*</span><span className="sr-only">(required)</span></span><textarea aria-label="Project idea" value={idea} onChange={(e) => setIdea(e.target.value)} minLength={12} required rows={3} placeholder="Describe the project you want to build..." className={FIELD} /></label>
+      <label className="block font-semibold text-slate-900 dark:text-slate-100"><span className="flex items-center gap-2"><FieldIcon kind="users" />Target User <span className="text-rose-700 dark:text-rose-300" aria-hidden="true">*</span><span className="sr-only">(required)</span></span><input aria-label="Target user" minLength={3} required value={targetUser} onChange={(e) => setTargetUser(e.target.value)} placeholder="Who is the project for? (e.g., students, employees, customers)" className={`${FIELD} min-h-12`} /></label>
+      <TemplateChips onPick={pickTemplate} />
       <label className="block font-semibold text-slate-900 dark:text-slate-100"><span className="flex items-center gap-2"><FieldIcon kind="rules" />Project Rules <span className="font-normal text-slate-500 dark:text-slate-400">(Optional)</span></span><textarea aria-label="Project Rules (Optional)" value={constitution} maxLength={4000} onChange={(e) => setConstitution(e.target.value)} rows={2} placeholder="Any specific constraints, technologies, or guidelines to follow?" className={FIELD} /></label>
       <label className="block font-semibold text-slate-900 dark:text-slate-100"><span className="flex items-center gap-2"><FieldIcon kind="rubric" />Rubric <span className="font-normal text-slate-500 dark:text-slate-400">(Optional)</span></span><textarea aria-label="Rubric (Optional)" value={rubric} maxLength={4000} onChange={(e) => setRubric(e.target.value)} rows={2} placeholder="Add your grading rubric or evaluation criteria..." className={FIELD} /></label>
       <ModeSelector />
-      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between"><button type="button" disabled={busy} onClick={startDemoProject} className="min-h-11 rounded-xl px-3 text-sm font-semibold text-violet-700 underline decoration-violet-300 underline-offset-4 hover:bg-violet-50 disabled:opacity-50 dark:text-violet-300 dark:hover:bg-violet-950">Run guided demo</button><button type="button" data-primary-action disabled={!canStart} aria-busy={busy} aria-describedby={!canStart ? helpId : undefined} onClick={start} className="min-h-14 rounded-2xl bg-gradient-to-r from-violet-700 to-purple-600 px-6 py-3 text-base font-bold text-white shadow-[0_12px_28px_rgba(109,40,217,0.3)] transition hover:-translate-y-0.5 hover:from-violet-800 hover:to-purple-700 hover:shadow-[0_16px_34px_rgba(109,40,217,0.36)] disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none motion-reduce:transform-none sm:min-w-[20rem]">{busy ? "Generating questions…" : "Generate Clarifying Questions →"}</button></div>
+      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between"><div className="flex flex-wrap items-center gap-2"><button type="button" onClick={loadDemoText} className="min-h-11 rounded-xl border border-violet-300 bg-white/80 px-4 text-sm font-semibold text-violet-800 hover:border-violet-400 hover:bg-violet-50 dark:border-violet-800 dark:bg-slate-950/70 dark:text-violet-200 dark:hover:bg-violet-950">Load sample text</button><button type="button" disabled={busy} onClick={startDemoProject} className="min-h-11 rounded-xl px-3 text-sm font-semibold text-violet-800 underline decoration-violet-300 underline-offset-4 hover:bg-violet-50 disabled:opacity-50 dark:text-violet-300 dark:hover:bg-violet-950">Run guided demo</button></div><button type="button" data-primary-action disabled={!canStart} aria-busy={busy} aria-describedby={!canStart ? helpId : undefined} onClick={start} className="min-h-14 rounded-2xl bg-gradient-to-r from-violet-700 to-purple-600 px-6 py-3 text-base font-bold text-white shadow-[0_12px_28px_rgba(109,40,217,0.3)] transition hover:-translate-y-0.5 hover:from-violet-800 hover:to-purple-700 hover:shadow-[0_16px_34px_rgba(109,40,217,0.36)] disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none motion-reduce:transform-none sm:min-w-[20rem]">{busy ? "Generating questions…" : "Generate Clarifying Questions →"}</button></div>
       {!canStart && <p id={helpId} className="text-sm text-slate-600 dark:text-slate-300">{busy ? "The Manager is working…" : idea.trim().length < 12 ? "Enter a project idea of at least 12 characters." : targetUser.trim().length < 3 ? "Enter a target user of at least 3 characters." : "Complete the required fields to continue."}</p>}
       {managerMode === "live" && <p className="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs leading-relaxed text-violet-950 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-100">Live API remains opt-in. Project context is sent only after access and consent are confirmed.</p>}
     </div>

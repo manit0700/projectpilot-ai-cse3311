@@ -18,8 +18,8 @@ function isTyping(target: EventTarget | null): boolean {
 /** Opens the shortcuts dialog from anywhere (for example a header button inside a collapsed menu). */
 export function ShortcutsButton({ className }: { className?: string }) {
   return (
-    <button type="button" onClick={() => window.dispatchEvent(new Event(OPEN_EVENT))} className={className ?? "min-h-11 rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50"}>
-      Keyboard shortcuts <kbd className="ml-1 rounded border border-slate-300 px-1.5 font-mono text-xs">?</kbd>
+    <button type="button" onClick={() => window.dispatchEvent(new Event(OPEN_EVENT))} className={className ?? "min-h-11 rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200"}>
+      Keyboard shortcuts <kbd className="ml-1 rounded border border-slate-300 px-1.5 font-mono text-xs dark:border-slate-600">?</kbd>
     </button>
   );
 }
@@ -61,14 +61,14 @@ export function Shortcuts() {
       // The dialog has a single focusable control, so Tab simply keeps focus on it.
       onKeyDown={(event) => { if (event.key === "Tab") { event.preventDefault(); dialog.current?.querySelector<HTMLElement>("button")?.focus(); } }}
       onClick={(event) => { if (event.target === dialog.current) dialog.current?.close(); }}
-      className="m-auto w-[min(26rem,calc(100vw-2rem))] rounded-2xl border border-slate-300 bg-white p-5 text-slate-900 shadow-xl backdrop:bg-black/50"
+      className="m-auto w-[min(26rem,calc(100vw-2rem))] rounded-2xl border border-slate-300 bg-white p-5 text-slate-900 shadow-xl backdrop:bg-black/50 dark:bg-slate-950 dark:border-slate-600 dark:text-slate-50"
     >
       <h2 id="shortcuts-title" className="text-lg font-semibold">Keyboard shortcuts</h2>
       <dl className="mt-3 space-y-2">
         {SHORTCUTS.map(([keys, action]) => (
           <div key={keys} className="flex flex-wrap items-baseline justify-between gap-2">
-            <dt><kbd className="rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 font-mono text-sm">{keys}</kbd></dt>
-            <dd className="text-sm text-slate-700">{action}</dd>
+            <dt><kbd className="rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 font-mono text-sm dark:bg-slate-900 dark:border-slate-600">{keys}</kbd></dt>
+            <dd className="text-sm text-slate-700 dark:text-slate-200">{action}</dd>
           </div>
         ))}
       </dl>

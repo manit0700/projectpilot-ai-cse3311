@@ -124,13 +124,13 @@ export function StudioControls(p: Props) {
         </div>
       )}
       <GithubSection live={p.live} busy={p.busy} github={p.github} onAction={p.onGithub} />
-      <h2 className="mt-1 flex items-center gap-2 text-lg font-bold text-violet-950 dark:text-violet-100"><span aria-hidden="true" className="text-violet-600">◫</span>Agent Activity &amp; Revisions</h2>
+      <h2 className="mt-1 flex items-center gap-2 text-lg font-bold text-violet-950 dark:text-violet-100"><span aria-hidden="true" className="text-violet-600 dark:text-violet-300">◫</span>Agent Activity &amp; Revisions</h2>
       <div role="log" aria-label="Agent handoffs" aria-live="polite" className="max-h-[28rem] space-y-3 overflow-y-auto rounded-2xl border border-violet-100 bg-violet-50/35 p-3 dark:border-violet-900 dark:bg-violet-950/20">
         {p.messages.length ? p.messages.map((m, i) => (
           <article key={i} className="rounded-r-xl border-l-2 border-violet-600 bg-white/75 py-2 pl-3 pr-2 dark:bg-slate-950/70">
             <strong className="text-sm text-violet-950 dark:text-violet-100">{m.role}</strong>
-            {m.model && <small className="block text-xs text-slate-500">{m.model}</small>}
-            <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-700">{m.text}</p>
+            {m.model && <small className="block text-xs text-slate-500 dark:text-slate-400">{m.model}</small>}
+            <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-700 dark:text-slate-200">{m.text}</p>
           </article>
         )) : (
           <p className={mutedStyles}>Agent decisions and review findings will appear here. The starter preview is local sample content.</p>

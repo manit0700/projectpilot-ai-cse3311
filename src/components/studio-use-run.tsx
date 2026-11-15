@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { validFiles, type SiteFiles } from "@/lib/studio";
 import { sseData } from "@/lib/studio-stream";
-import { delay, demoBannerText, demoBannerTitle, demoLabel, demoResult, demoStageMs, type StageResult, type StudioStage } from "@/lib/studio-demo";
+import { delay, demoBannerText, demoBannerTitle, demoLabel, demoResult, parsePlan, planBuildNote, demoStageMs, type StageResult, type StudioStage } from "@/lib/studio-demo";
 import { initialActivity, type Activity } from "./studio-agents";
 
 export type RunKind = "plan" | "build" | "revise" | "review";
@@ -94,7 +94,7 @@ export function useStudioRun(d: Deps) {
       setLiveModel(demoLabel);
       setStage(stage, "Working · demo", workingTask(stage, note));
       await delay(demoStageMs, signal);
-      result = demoResult(stage, d.projectName);
+      result = demoResult(stage, d.projectName, d.sourcePlan);
       setLiveText(result.files ? JSON.stringify(result.files, null, 2) : result.text || "");
     }
     setStage(stage, "Completed", completedTask[stage]);
@@ -140,7 +140,7 @@ export function useStudioRun(d: Deps) {
     abort.current = controller;
     setBusy(busyLabels[kind]); setError("");
     try {
-      if (!d.live && kind !== "review") d.say("Studio", `${demoBannerTitle}. ${demoBannerText(d.projectName)}`, demoLabel);
+      if (!d.live && kind !== "review") d.say("Studio", parsePlan(d.sourcePlan).requirements.length ? planBuildNote : `${demoBannerTitle}. ${demoBannerText(d.projectName)}`, demoLabel);
       if (kind === "review") {
         const result = await call("review", d.files, d.design, d.feedback, controller.signal);
         d.say("Reviewer → You", result.text || "", result.model);

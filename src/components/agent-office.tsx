@@ -5,7 +5,7 @@ import { TaskHandoff } from "@/components/task-handoff";
 import { AGENT_LABELS } from "@/lib/agents";
 import type { AgentOutput, AgentRole, Feedback, Review, Task } from "@/lib/types";
 import { taskLabel } from "@/lib/workflow";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 const OFFICE_ROLES: AgentRole[] = ["manager", "frontend", "backend", "database", "testing", "documentation", "review"];
 
@@ -138,9 +138,22 @@ function ReviewFindings({ reviews }: { reviews: Review[] }) {
   })}</div>;
 }
 
-function AgentDetailsPanel({ role, activity, tasks, outputs, reviews, feedbackItems, busy, skippedTaskIds, onRetry, onSkip, onClose, panelRef }: {
+const OVERLAY_QUERY = "(max-width: 1279px)";
+function subscribeOverlay(onChange: () => void) {
+  const query = window.matchMedia(OVERLAY_QUERY);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
+/** True below xl, where the details panel is a fixed overlay (a real modal) instead of an inline column. */
+function useOverlayPanel(): boolean {
+  return useSyncExternalStore(subscribeOverlay, () => window.matchMedia(OVERLAY_QUERY).matches, () => false);
+}
+
+const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),summary,[tabindex]:not([tabindex="-1"])';
+
+function AgentDetailsPanel({ role, activity, tasks, outputs, reviews, feedbackItems, busy, skippedTaskIds, onRetry, onSkip, onClose, panelRef, modal }: {
   role: AgentRole; activity: AgentActivity; tasks: Task[]; outputs: AgentOutput[]; reviews: Review[]; feedbackItems: Feedback[]; busy: boolean; skippedTaskIds: string[];
-  onRetry: (id: string) => void; onSkip: (id: string) => void; onClose: () => void; panelRef: React.RefObject<HTMLElement | null>;
+  onRetry: (id: string) => void; onSkip: (id: string) => void; onClose: () => void; panelRef: React.RefObject<HTMLElement | null>; modal: boolean;
 }) {
   const assigned = useMemo(() => tasks.filter((task) => task.ownerAgent === role), [role, tasks]);
   const [selectedTaskId, setSelectedTaskId] = useState<string | undefined>(activity.taskId ?? assigned[0]?.id);
@@ -150,7 +163,7 @@ function AgentDetailsPanel({ role, activity, tasks, outputs, reviews, feedbackIt
   const waitingDependencies = selectedTask?.dependencies.filter((id) => tasks.find((task) => task.id === id)?.state !== "completed") ?? [];
 
   return (
-    <aside ref={panelRef} tabIndex={-1} role="dialog" aria-modal="false" aria-labelledby="agent-panel-title" className="fixed inset-3 z-50 overflow-y-auto rounded-[2rem] border border-violet-200 bg-white/95 p-5 shadow-[0_30px_90px_rgba(46,16,101,0.3)] backdrop-blur-xl dark:border-violet-800 dark:bg-slate-950/95 xl:static xl:z-auto xl:max-h-[74rem] xl:min-h-[48rem] xl:w-[24rem] xl:self-start">
+    <aside ref={panelRef} tabIndex={-1} role="dialog" aria-modal={modal} aria-labelledby="agent-panel-title" className="fixed inset-3 z-50 overflow-y-auto rounded-[2rem] border border-violet-200 bg-white/95 p-5 shadow-[0_30px_90px_rgba(46,16,101,0.3)] backdrop-blur-xl dark:border-violet-800 dark:bg-slate-950/95 xl:static xl:z-auto xl:max-h-[74rem] xl:min-h-[48rem] xl:w-[24rem] xl:self-start">
       <header className="flex items-start justify-between gap-3 border-b border-violet-100 pb-4 dark:border-violet-900">
         <div className="flex min-w-0 items-center gap-3"><span className={`flex size-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br font-mono font-bold text-white shadow-lg ${ROLE_META[role].color}`}>{ROLE_META[role].icon}</span><div><h2 id="agent-panel-title" className="text-xl font-bold text-violet-950 dark:text-violet-100">{AGENT_LABELS[role]}</h2><div className="mt-2"><StatusPill activity={activity} /></div></div></div>
         <button type="button" onClick={onClose} aria-label={`Close ${AGENT_LABELS[role]} details`} className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-violet-200 text-2xl text-violet-800 hover:bg-violet-50 dark:border-violet-800 dark:text-violet-200">×</button>
@@ -190,15 +203,32 @@ export function AgentOffice({ tasks, outputs, reviews, feedbackItems, busy, skip
     setSelectedRole(null);
     requestAnimationFrame(() => role && triggerRefs.current[role]?.focus());
   }
+  const overlay = useOverlayPanel();
+  // The skip confirmation lives in the board screen under the z-50 overlay, so close the overlay first.
+  // Focus is not sent back to the desk here: the confirmation takes focus itself.
+  function skipFromPanel(id: string) {
+    if (overlay) setSelectedRole(null);
+    onSkip(id);
+  }
   useEffect(() => {
     if (!selectedRole) return;
     panelRef.current?.focus({ preventScroll: true });
-    const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") closePanel(); };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { closePanel(); return; }
+      if (event.key !== "Tab" || !overlay || !panelRef.current) return;
+      // Keep Tab inside the modal panel while it covers the page.
+      const items = Array.from(panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((el) => el.offsetParent !== null || el === document.activeElement);
+      if (!items.length) { event.preventDefault(); panelRef.current.focus(); return; }
+      const first = items[0], last = items[items.length - 1], active = document.activeElement;
+      if (event.shiftKey && (active === first || active === panelRef.current)) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && active === last) { event.preventDefault(); first.focus(); }
+      else if (!panelRef.current.contains(active)) { event.preventDefault(); first.focus(); }
+    };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
     // closePanel deliberately uses the role from this render for focus restoration.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedRole]);
+  }, [selectedRole, overlay]);
 
   return (
     <div className={`mt-6 grid items-start gap-5 ${selectedRole ? "xl:grid-cols-[minmax(0,1fr)_24rem]" : ""}`}>
@@ -213,7 +243,7 @@ export function AgentOffice({ tasks, outputs, reviews, feedbackItems, busy, skip
           {OFFICE_ROLES.map((role, index) => <div key={role} className={index >= 4 ? "xl:translate-x-1/2" : ""}><AgentDesk role={role} activity={activities[role]} selected={selectedRole === role} onSelect={() => setSelectedRole(role)} setButtonRef={(node) => { triggerRefs.current[role] = node; }} /></div>)}
         </div>
       </section>
-      {selectedRole && <><button type="button" aria-label="Close agent details" onClick={closePanel} className="fixed inset-0 z-40 cursor-default bg-violet-950/30 backdrop-blur-sm xl:hidden" /><AgentDetailsPanel key={selectedRole} role={selectedRole} activity={activities[selectedRole]} tasks={tasks} outputs={outputs} reviews={reviews} feedbackItems={feedbackItems} busy={busy} skippedTaskIds={skippedTaskIds} onRetry={onRetry} onSkip={onSkip} onClose={closePanel} panelRef={panelRef} /></>}
+      {selectedRole && <><button type="button" aria-label="Close agent details" onClick={closePanel} className="fixed inset-0 z-40 cursor-default bg-violet-950/30 backdrop-blur-sm xl:hidden" /><AgentDetailsPanel key={selectedRole} role={selectedRole} activity={activities[selectedRole]} tasks={tasks} outputs={outputs} reviews={reviews} feedbackItems={feedbackItems} busy={busy} skippedTaskIds={skippedTaskIds} onRetry={onRetry} onSkip={skipFromPanel} modal={overlay} onClose={closePanel} panelRef={panelRef} /></>}
     </div>
   );
 }

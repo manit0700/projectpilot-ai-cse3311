@@ -60,7 +60,7 @@ export function HeaderBar({ isLive, providerLabel, providerConfigured, modeLocke
   const modeControls = (
     <div className="flex flex-wrap items-center gap-3">
       <div>
-        <label className="text-sm font-medium text-white">Agent mode <select aria-label="Agent mode" aria-describedby={modeLocked ? "mode-lock-help" : "mode-help"} value={managerMode} disabled={modeLocked} onChange={(e) => setManagerMode(e.target.value as "demo" | "live")} className="ml-2 min-h-11 rounded-lg border border-white/25 bg-white/10 p-2 text-white disabled:cursor-not-allowed disabled:opacity-60"><option className="text-slate-900" value="demo">Demo (default)</option><option className="text-slate-900" value="live">Live API{providerConfigured ? ` · ${providerLabel}` : " · not configured"}</option></select></label>
+        <label className="text-sm font-medium text-white">Agent mode <select aria-label="Agent mode" aria-describedby={modeLocked ? "mode-lock-help" : "mode-help"} value={managerMode} disabled={modeLocked} onChange={(e) => setManagerMode(e.target.value as "demo" | "live")} className="ml-2 min-h-11 rounded-lg border border-white/25 bg-white/10 p-2 text-white disabled:cursor-not-allowed disabled:opacity-60"><option className="text-slate-900 dark:text-slate-50" value="demo">Demo (default)</option><option className="text-slate-900 dark:text-slate-50" value="live">Live API{providerConfigured ? ` · ${providerLabel}` : " · not configured"}</option></select></label>
         {modeLocked ? <p id="mode-lock-help" className="mt-1 text-xs text-violet-200">Mode locked: {modeLockReason}</p> : <p id="mode-help" className="mt-1 text-xs text-violet-200">Live is opt-in and asks for data-sharing consent.</p>}
       </div>
       {isLive && <button type="button" disabled={busy} aria-describedby={busy ? "live-access-help" : undefined} className="min-h-11 text-white underline underline-offset-4 disabled:cursor-not-allowed disabled:opacity-50" onClick={onLiveAccess}>Live access</button>}
@@ -106,7 +106,7 @@ export function HeaderBar({ isLive, providerLabel, providerConfigured, modeLocke
           {badge}
         </div>
         {narrow ? (
-          <div className="flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-2">
             {resetButton}
             <details className="relative">
               <summary className="flex min-h-11 min-w-11 cursor-pointer list-none items-center rounded-xl border border-white/30 bg-white/10 px-3 text-sm font-medium text-white [&::-webkit-details-marker]:hidden">Settings</summary>

@@ -28,7 +28,7 @@ function ManagerAvatar() {
 }
 
 function QuestionsWorkspaceArt() {
-  return <WorkspaceIllustration src="/projectpilot-questions-workspace.png" className="sticky top-6 hidden h-[54rem] rounded-[2rem] border border-white/50 shadow-[0_24px_60px_rgba(91,33,182,0.18)] xl:block" priority sizes="250px" />;
+  return <WorkspaceIllustration src="/projectpilot-questions-workspace.png" className="sticky top-6 hidden h-[54rem] rounded-[2rem] border border-white/50 shadow-[0_24px_60px_rgba(91,33,182,0.18)] xl:block" sizes="250px" />;
 }
 
 function ClarifyingQuestionCard({
@@ -137,7 +137,7 @@ export function QuestionsScreen() {
   }, [allBlank, requirements.length, busy, project.id, suggestAnswers]);
 
   return (
-    <div className="grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_280px] xl:grid-cols-[250px_minmax(0,1fr)_280px]">
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,1fr)_280px] xl:grid-cols-[250px_minmax(0,1fr)_280px]">
       <QuestionsWorkspaceArt />
 
       <section className="min-w-0 rounded-[2rem] border border-violet-200/80 bg-white/95 p-5 shadow-[0_24px_70px_rgba(91,33,182,0.13)] backdrop-blur-sm dark:border-violet-900 dark:bg-slate-950/95 sm:p-8">
@@ -226,8 +226,8 @@ export function TasksScreen() {
   </>;
 
   return (
-    <div className="grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_280px] xl:grid-cols-[250px_minmax(0,1fr)_280px]">
-      <WorkspaceIllustration src="/projectpilot-tasks-workspace.png" className="sticky top-6 hidden h-[54rem] rounded-[2rem] border border-white/50 shadow-[0_24px_60px_rgba(91,33,182,0.18)] xl:block" priority sizes="250px" />
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,1fr)_280px] xl:grid-cols-[250px_minmax(0,1fr)_280px]">
+      <WorkspaceIllustration src="/projectpilot-tasks-workspace.png" className="sticky top-6 hidden h-[54rem] rounded-[2rem] border border-white/50 shadow-[0_24px_60px_rgba(91,33,182,0.18)] xl:block" sizes="250px" />
 
       <section className="min-w-0 rounded-[2rem] border border-violet-200/80 bg-white/95 p-5 shadow-[0_24px_70px_rgba(91,33,182,0.13)] backdrop-blur-sm dark:border-violet-900 dark:bg-slate-950/95 sm:p-8">
         <h1 className="text-3xl font-bold tracking-tight text-slate-950 dark:text-white sm:text-4xl">Task Breakdown</h1>

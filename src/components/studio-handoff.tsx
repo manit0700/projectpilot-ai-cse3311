@@ -16,7 +16,7 @@ export function StudioHandoffButton({ disabled = false, variant = "default" }: {
     } catch (e) { setError(e instanceof Error ? e.message : "Could not transfer the plan."); }
   }
   return (
-    <section className={variant === "purple" ? "mt-6 rounded-2xl border border-violet-200 bg-violet-50/70 p-5 dark:border-violet-900 dark:bg-violet-950/30" : "mt-6 rounded-xl border border-teal-200 bg-teal-50 p-4"}>
+    <section className={variant === "purple" ? "mt-6 rounded-2xl border border-violet-200 bg-violet-50/70 p-5 dark:border-violet-900 dark:bg-violet-950/30" : "mt-6 rounded-xl border border-teal-200 bg-teal-50 p-4 dark:bg-teal-950/50 dark:border-teal-800"}>
       <h2 className={variant === "purple" ? "text-lg font-semibold text-violet-950 dark:text-violet-100" : "text-lg font-semibold"}>Ready to turn this idea into a website?</h2>
       <p className={variant === "purple" ? "mt-2 leading-relaxed text-slate-600 dark:text-slate-300" : "mt-2"}>
         Confirm your requirements and task plan here, then carry them into Website Studio. Agents design, build

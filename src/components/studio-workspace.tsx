@@ -68,13 +68,13 @@ export function StudioWorkspace(p: Props) {
           <span>{demoBannerText(p.projectName)}</span>
         </div>
       )}
-      <div className={`mx-auto w-full overflow-hidden rounded-2xl border border-violet-200 bg-white shadow-[0_18px_44px_rgba(91,33,182,0.13)] dark:border-violet-800 ${mobile ? "max-w-sm" : ""}`}>
+      <div className={`mx-auto w-full overflow-hidden rounded-2xl border border-violet-200 bg-white shadow-[0_18px_44px_rgba(91,33,182,0.13)] dark:border-violet-800 dark:bg-slate-950 ${mobile ? "max-w-sm" : ""}`}>
         <div className="flex h-11 items-center gap-2 border-b border-violet-100 bg-gradient-to-r from-violet-50 to-purple-50 px-4 dark:border-violet-900 dark:from-violet-950 dark:to-purple-950">
           <span aria-hidden="true" className="size-2.5 rounded-full bg-rose-400" /><span aria-hidden="true" className="size-2.5 rounded-full bg-amber-400" /><span aria-hidden="true" className="size-2.5 rounded-full bg-emerald-400" />
           <span className="ml-2 min-w-0 flex-1 truncate rounded-lg border border-violet-100 bg-white/80 px-3 py-1 text-center font-mono text-xs text-slate-500 dark:border-violet-800 dark:bg-slate-950/70 dark:text-slate-400">projectpilot.preview</span>
         </div>
         <iframe title="Generated website preview" sandbox="allow-scripts" srcDoc={documentHtml(p.preview)}
-          referrerPolicy="no-referrer" className="block h-[40rem] w-full border-0 bg-white xl:h-[46rem]" />
+          referrerPolicy="no-referrer" className="block h-[40rem] w-full border-0 bg-white xl:h-[46rem] dark:bg-slate-950" />
       </div>
       <p className={mutedStyles}>
         Preview blocks network requests, forms, and access to ProjectPilot data. Download to test the website independently.
