@@ -62,7 +62,7 @@ function ModeSelector() {
 }
 
 function WorkspaceArt() {
-  return <WorkspaceIllustration className="hidden min-h-[48rem] lg:block" caption="Start with a clear idea. Your AI team will help shape the plan." />;
+  return <WorkspaceIllustration priority className="hidden min-h-[48rem] lg:block" caption="Start with a clear idea. Your AI team will help shape the plan." />;
 }
 
 export function IdeaScreen() {

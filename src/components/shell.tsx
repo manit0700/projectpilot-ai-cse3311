@@ -79,7 +79,7 @@ export function ManagerPanel({ variant = "default" }: { variant?: "default" | "p
             {questionsTheme && <span className="flex size-8 items-center justify-center rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-200" aria-hidden="true"><svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 5h14v11H8l-3 3V5Z" strokeLinecap="round" strokeLinejoin="round" /></svg></span>}
             Manager Agent log
           </h2>
-          <span className={`rounded-full bg-white px-2 py-0.5 font-mono text-xs dark:bg-slate-950 ${questionsTheme ? "text-violet-800 ring-1 ring-violet-200 dark:text-violet-200 dark:ring-violet-800" : "text-teal-900 dark:text-teal-100"}`}>{managerNotes.length}</span>
+          <span className={`shrink-0 whitespace-nowrap rounded-full bg-white px-2 py-0.5 font-mono text-xs dark:bg-slate-950 ${questionsTheme ? "text-violet-800 ring-1 ring-violet-200 dark:text-violet-200 dark:ring-violet-800" : "text-teal-900 dark:text-teal-100"}`}>{managerNotes.length}</span>
         </div>
         <p className={`mt-2 text-sm leading-relaxed ${questionsTheme ? "text-violet-900/80 dark:text-violet-200" : "text-teal-900 dark:text-teal-100"}`}>
           Decisions and handoffs, newest first. Nothing here changes without your approval.

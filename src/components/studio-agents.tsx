@@ -77,7 +77,7 @@ export function LiveResponse({ open, onToggle, model, text, live }: LiveResponse
           <p className={`mt-2 ${mutedStyles}`}>
             {live ? liveHelp : demoHelp}
           </p>
-          <pre aria-label="Live agent response" className={preStyles}>
+          <pre aria-label="Live agent response" tabIndex={0} className={preStyles}>
             {text || (live ? "Waiting for an agent request. No prepared responses are used for live builds."
               : "Waiting for a demo step. Prepared output will appear here.")}
           </pre>

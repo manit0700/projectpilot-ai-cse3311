@@ -300,17 +300,29 @@ type PlanTask = { order: string; title: string; owner: string };
 /** Reads the approved requirements and task titles back out of the plan text built by createStudioHandoff. */
 export function parsePlan(plan: string): { requirements: string[]; tasks: PlanTask[] } {
   const afterReq = plan.split("APPROVED REQUIREMENTS")[1] ?? "";
-  const [reqBlock, taskBlock = ""] = afterReq.split("USER-CONFIRMED TASK PLAN");
+  const [reqBlock, rawTasks = ""] = afterReq.split("USER-CONFIRMED TASK PLAN");
+  // Later sections (approved deliverables, constitution, rubric) also hold numbered lines; they are not tasks.
+  const taskBlock = rawTasks.split(/APPROVED FRONTEND AND DESIGN DELIVERABLES|PROJECT CONSTITUTION|REVIEW RUBRIC|Website scope:/)[0];
   const requirements = reqBlock.split("\n").map((l) => l.match(/^- (.+)$/)?.[1]?.trim()).filter((x): x is string => !!x).slice(0, 12);
   const tasks: PlanTask[] = [];
   for (const line of taskBlock.split("\n")) {
     const m = line.match(/^(\d+)\. (.+) \(([\w-]+)\)$/);
-    if (m) tasks.push({ order: m[1], title: m[2].trim(), owner: m[3] });
+    if (m && !tasks.some((t) => t.order === m[1])) tasks.push({ order: m[1], title: m[2].trim(), owner: m[3] });
   }
   return { requirements, tasks: tasks.slice(0, 12) };
 }
 const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 export const planBuildNote = "Demo build from your approved plan: a simple template fills in your requirements and tasks. No AI wrote it. Switch to Live for a real design.";
+/** Review for demo mode: a template check of the plan-driven site, so it never describes a different (canned) page. */
+export function planReview(name: string, plan: string) {
+  const { requirements, tasks } = parsePlan(plan);
+  return `> ${planBuildNote.replace("Demo build", "Demo review")}\n\n## Review Response\n\n` +
+    `I read the generated page for ${cleanTitle(name) || "your project"} against your approved plan. This is a source review only; the site was not executed, and no AI wrote it.\n\n` +
+    `### Findings\n\n1. **Requirements coverage**: the page lists ${requirements.length} approved requirement${requirements.length === 1 ? "" : "s"} as a checklist. Each one still needs a real feature behind it.\n\n` +
+    `2. **Task plan**: ${tasks.length} task${tasks.length === 1 ? "" : "s"} are listed with their owners. Confirm the order matches your dependencies before building the real screens.\n\n` +
+    `3. **Accessibility basics**: checklist items use real checkboxes with labels, and the progress line is a live status. Keep that when you replace the template with a design.\n\n` +
+    `### Required fixes\n\n- Switch to Live to get a designed page that implements the requirements, then run this review again.\n`;
+}
 /** Design brief for demo mode, taken from the plan instead of the canned example. */
 export function planDesignText(name: string, plan: string) {
   const { requirements, tasks } = parsePlan(plan);
@@ -335,6 +347,7 @@ export function demoResult(stage: StudioStage, projectName?: string, plan?: stri
   if (plan && parsePlan(plan).requirements.length) {
     if (stage === "plan") return { text: planDesignText(projectName ?? "", plan), model: demoLabel };
     if (stage === "build") return { files: planSite(projectName ?? "", plan), model: demoLabel };
+    return { text: planReview(projectName ?? "", plan), model: demoLabel };
   }
   if (stage === "plan") return { text: `> ${demoBannerTitle}. ${demoBannerText(projectName)}\n\n${demoDesign}`, model: demoLabel };
   if (stage === "build") return { files: demoFiles, model: demoLabel };

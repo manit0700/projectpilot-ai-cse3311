@@ -103,3 +103,16 @@ test('demo falls back to the prepared example only without a readable plan', () 
   assert.match(demoResult('build', 'X', 'no sections here').files.html, /Study Session Tracker/);
   assert.equal(planSite('X', PLAN).js.length > 0, true);
 });
+
+test('deliverables, constitution and rubric lines after the task plan are not read as tasks', () => {
+  const plan = PLAN + '\n\nAPPROVED FRONTEND AND DESIGN DELIVERABLES\n1. Build the page (frontend)\n3. Extra output (documentation)\n\nPROJECT CONSTITUTION\n4. Rule (x)\n\nREVIEW RUBRIC\n5. Item (y)';
+  assert.deepEqual(parsePlan(plan).tasks.map(t => t.order), ['1', '2']);
+});
+
+test('demo review of a plan-driven site describes that site, not the canned tracker', () => {
+  const text = demoResult('review', 'Study tracker', PLAN).text;
+  assert.match(text, /2 approved requirements/);
+  assert.match(text, /2 tasks/);
+  assert.doesNotMatch(text, /minutes input|innerHTML/);
+  assert.match(demoResult('review', 'Study tracker', null).text, /minutes input/, 'canned review stays for the canned site');
+});

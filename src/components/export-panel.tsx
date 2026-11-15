@@ -96,7 +96,7 @@ export function ExportPanel({ compact = false, className = "", variant = "defaul
         <h3 id="export-import" className={`text-sm font-bold uppercase tracking-[.12em] ${purple ? "text-violet-800 dark:text-violet-200" : "text-slate-600 dark:text-slate-300"}`}>Restore a backup</h3>
         <div className={`mt-2 rounded-xl border bg-white px-4 py-3 dark:bg-slate-950 ${purple ? "border-violet-100 dark:border-violet-900" : "border-slate-200 dark:border-slate-700"}`}>
           <p className="text-sm text-slate-600 dark:text-slate-300">Import a plan.json you downloaded earlier to continue on this browser.</p>
-          <input ref={fileInput} type="file" accept=".json,application/json" className="sr-only" id="export-import-file" tabIndex={-1}
+          <input ref={fileInput} type="file" aria-label="Import plan.json backup" accept=".json,application/json" className="sr-only" id="export-import-file" tabIndex={-1}
             disabled={!importProject || store.busy} onChange={(e) => void chooseFile(e.target.files?.[0])} />
           <button type="button" disabled={!importProject || store.busy} onClick={() => fileInput.current?.click()}
             className={purple ? "mt-3 min-h-11 rounded-xl border border-violet-300 px-4 py-2 text-sm font-bold text-violet-800 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-violet-800 dark:text-violet-200 dark:hover:bg-violet-950" : "mt-2 min-h-11 rounded-xl border border-teal-700 px-4 py-2 text-sm font-semibold text-teal-800 hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-teal-200"}>

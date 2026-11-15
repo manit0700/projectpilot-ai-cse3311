@@ -73,7 +73,7 @@ export function Shortcuts() {
         ))}
       </dl>
       <form method="dialog" className="mt-4 flex justify-end">
-        <button autoFocus className="min-h-11 rounded-xl bg-teal-700 px-5 py-2 font-semibold text-white hover:bg-teal-800">Close</button>
+        <button autoFocus className="min-h-11 rounded-xl bg-violet-700 px-5 py-2 font-semibold text-white hover:bg-violet-800">Close</button>
       </form>
     </dialog>
   );

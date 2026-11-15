@@ -20,7 +20,7 @@ async function shot(name){await page.evaluate(()=>{const el=document.getElementB
 async function heading(name){await page.getByRole('heading',{name,exact:true}).waitFor({timeout:180000});}
 try{
  await page.goto(base,{waitUntil:'networkidle'});
- await page.getByRole('combobox',{name:'Agent mode'}).selectOption('live');
+ await page.getByRole('radio',{name:/live/i}).check({force:true});
  await page.getByRole('heading',{name:'Live API access and data sharing',exact:true}).waitFor();
  await caption('Live API requires private reviewer access and consent before sending project context to OpenAI.');
  await pause(6000);await shot('00-live-consent');

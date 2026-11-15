@@ -114,9 +114,9 @@ function AgentDesk({ role, activity, selected, onSelect, setButtonRef }: { role:
         <div className="absolute -top-14 left-1/2 h-16 w-24 -translate-x-1/2 rounded-lg border-[5px] border-[#4c3a59] bg-gradient-to-br from-violet-200 to-violet-500 shadow-lg">
           <span className="flex h-full items-center justify-center font-mono text-lg font-bold text-white">{meta.icon}</span>
         </div>
-        <div className="absolute inset-x-3 bottom-3 flex min-h-11 items-center justify-center gap-2 rounded-xl border border-violet-300/80 bg-white/90 px-2 text-center font-bold text-violet-950 shadow-sm">
+        <div className="absolute inset-x-2 bottom-3 flex min-h-11 items-center justify-center gap-1.5 overflow-hidden rounded-xl border border-violet-300/80 bg-white/90 px-2 text-center font-bold text-violet-950 shadow-sm">
           <span className={`flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br text-xs text-white ${meta.color}`}>{meta.icon}</span>
-          <span className="whitespace-nowrap text-xs sm:text-sm">{meta.short}</span>
+          <span className="min-w-0 truncate text-xs">{meta.short}</span>
         </div>
         <span className="absolute -bottom-5 left-4 h-6 w-3 rounded-b bg-[#875f65]" /><span className="absolute -bottom-5 right-4 h-6 w-3 rounded-b bg-[#875f65]" />
       </div>
@@ -239,7 +239,7 @@ export function AgentOffice({ tasks, outputs, reviews, feedbackItems, busy, skip
           <div className="relative -ml-2 -mt-5 h-20 w-20"><span className="absolute bottom-0 left-5 h-10 w-11 rounded-b-2xl bg-violet-300" /><span className="absolute left-2 top-4 h-8 w-12 -rotate-[35deg] rounded-[100%_0] bg-emerald-500/70" /><span className="absolute left-10 top-0 h-10 w-7 rotate-[20deg] rounded-[100%_0] bg-emerald-600/70" /><span className="absolute left-10 top-7 h-7 w-11 rotate-[35deg] rounded-[0_100%] bg-lime-600/60" /></div>
         </div>
         <div className="pointer-events-none absolute right-8 top-7 hidden h-36 w-48 rounded-2xl border-8 border-violet-300/25 bg-white/35 p-3 shadow-inner sm:block"><div className="h-4 rounded bg-violet-200/60" /><div className="mt-3 flex h-20 items-end gap-2 border-b-4 border-violet-300/35 px-2">{[54, 68, 48, 72, 58, 64].map((height, i) => <span key={i} style={{ height }} className={`w-4 rounded-t ${i % 2 ? "bg-fuchsia-300/55" : "bg-violet-400/50"}`} />)}</div><span className="absolute -top-6 right-7 h-10 w-16 rounded-[100%_0] bg-emerald-500/55" /><span className="absolute -top-9 right-16 h-12 w-8 rotate-30 rounded-[100%_0] bg-lime-600/55" /></div>
-        <div className="relative grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="relative grid grid-cols-2 gap-x-3 gap-y-8 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
           {OFFICE_ROLES.map((role, index) => <div key={role} className={index >= 4 ? "xl:translate-x-1/2" : ""}><AgentDesk role={role} activity={activities[role]} selected={selectedRole === role} onSelect={() => setSelectedRole(role)} setButtonRef={(node) => { triggerRefs.current[role] = node; }} /></div>)}
         </div>
       </section>
